@@ -95,6 +95,11 @@ export declare class TerminalManager extends EventEmitter {
     private isMostlyPrintable;
     private isPromptLine;
     private buildReadStatus;
+    /**
+     * 解析 shell 名称，处理 Windows 别名
+     * 这个方法用于处理用户传入的 shell 参数
+     */
+    private resolveShellName;
     private resolveDefaultShell;
     private collectTerminalReplies;
     private getTerminalQueryDefinitions;

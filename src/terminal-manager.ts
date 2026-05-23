@@ -64,12 +64,15 @@ export class TerminalManager extends EventEmitter {
     const terminalId = uuidv4();
 
     const {
-      shell = this.config.defaultShell,
+      shell: requestedShell,
       cwd = process.cwd(),
       env = { ...process.env } as Record<string, string>,
       cols = this.config.defaultCols,
       rows = this.config.defaultRows
     } = options;
+
+    // 解析 shell 名称（处理 Windows 别名如 "powershell" -> "powershell.exe"）
+    const shell = this.resolveShellName(requestedShell);
 
     try {
       // 确保环境变量中包含 TERM，这对交互式应用很重要
@@ -938,13 +941,69 @@ export class TerminalManager extends EventEmitter {
     };
   }
 
-  private resolveDefaultShell(configuredShell?: string): string {
-    if (configuredShell?.trim()) {
-      return configuredShell;
+  /**
+   * 解析 shell 名称，处理 Windows 别名
+   * 这个方法用于处理用户传入的 shell 参数
+   */
+  private resolveShellName(requestedShell?: string): string {
+    // 如果没有指定 shell，使用默认值
+    if (!requestedShell?.trim()) {
+      return this.config.defaultShell;
     }
 
+    const trimmed = requestedShell.trim();
+
+    // Windows 平台需要处理 shell 别名
     if (process.platform === 'win32') {
+      const shellAliases: Record<string, string> = {
+        'powershell': 'powershell.exe',
+        'powershell.exe': 'powershell.exe',
+        'cmd': 'cmd.exe',
+        'cmd.exe': 'cmd.exe',
+        'pwsh': 'pwsh.exe',
+        'pwsh.exe': 'pwsh.exe'
+      };
+
+      const lowercased = trimmed.toLowerCase();
+      if (shellAliases[lowercased]) {
+        return shellAliases[lowercased];
+      }
+    }
+
+    // 其他平台或完整路径，直接返回
+    return trimmed;
+  }
+
+  private resolveDefaultShell(configuredShell?: string): string {
+    // Windows shell name resolution
+    if (process.platform === 'win32') {
+      const shellAliases: Record<string, string> = {
+        'powershell': 'powershell.exe',
+        'powershell.exe': 'powershell.exe',
+        'cmd': 'cmd.exe',
+        'cmd.exe': 'cmd.exe',
+        'pwsh': 'pwsh.exe',
+        'pwsh.exe': 'pwsh.exe'
+      };
+
+      // If configured shell is provided, resolve it
+      if (configuredShell?.trim()) {
+        const trimmed = configuredShell.trim().toLowerCase();
+        // Check if it's a known alias
+        if (shellAliases[trimmed]) {
+          return shellAliases[trimmed];
+        }
+        // Return as-is for full paths or unknown shells
+        return configuredShell.trim();
+      }
+
+      // Default to PowerShell on Windows
       return 'powershell.exe';
+    }
+
+    // macOS / Linux
+    if (configuredShell?.trim()) {
+      return configuredShell.trim();
     }
 
     const envShell = process.env.SHELL?.trim();
