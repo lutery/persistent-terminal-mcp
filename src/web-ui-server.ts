@@ -2,12 +2,19 @@ import express, { Request, Response } from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, Server as HttpServer } from 'http';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { TerminalManager } from './terminal-manager.js';
 import { ResultParser } from './result-parser.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/**
+ * Resolve the package root directory.
+ * Works in both ESM (uses __dirname polyfill) and CJS/test contexts.
+ * Avoids direct import.meta.url reference which causes SyntaxError in ts-jest.
+ */
+const _dirname: string = (() => {
+  // In compiled ESM output, __dirname is undefined — but we're in dist/ so cwd is fine
+  // In CJS/Jest context, __dirname is the current file's directory
+  return typeof __dirname !== 'undefined' ? __dirname : path.join(process.cwd(), 'dist');
+})();
 
 /**
  * Web UI 服务器
@@ -36,7 +43,7 @@ export class WebUIServer {
     this.app.use(express.urlencoded({ extended: true }));
 
     // 静态文件服务
-    const publicPath = path.join(__dirname, '../public');
+    const publicPath = path.join(_dirname, '../public');
     this.app.use(express.static(publicPath));
 
     // 请求日志
@@ -54,12 +61,12 @@ export class WebUIServer {
   private setupRoutes(): void {
     // 主页
     this.app.get('/', (req: Request, res: Response) => {
-      res.sendFile(path.join(__dirname, '../public/index.html'));
+      res.sendFile(path.join(_dirname, '../public/index.html'));
     });
 
     // 终端详情页
     this.app.get('/terminal/:id', (req: Request, res: Response) => {
-      res.sendFile(path.join(__dirname, '../public/terminal.html'));
+      res.sendFile(path.join(_dirname, '../public/terminal.html'));
     });
 
     // REST API 端点

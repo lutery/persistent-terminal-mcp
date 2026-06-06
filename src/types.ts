@@ -73,6 +73,7 @@ export interface TerminalReadResult {
     linesOmitted: number;
   };
   status?: TerminalReadStatus;
+  filter?: OutputFilterMetadata;
 }
 
 export interface TerminalRawReadOptions {
@@ -156,6 +157,11 @@ export interface CreateTerminalInput {
   shell?: string | undefined;
   cwd?: string | undefined;
   env?: Record<string, string> | undefined;
+  initCommands?: string[] | undefined;
+  readyPattern?: string | undefined;
+  readyTimeoutMs?: number | undefined;
+  initFailurePattern?: string | undefined;
+  statusFile?: string | undefined;
 }
 
 export interface CreateTerminalResult {
@@ -182,7 +188,7 @@ export interface ReadTerminalInput {
   terminalId: string;
   since?: number;
   maxLines?: number;
-  mode?: 'full' | 'head-tail' | 'head' | 'tail';
+  mode?: 'full' | 'head-tail' | 'head' | 'tail' | 'content_only' | 'last_response' | 'status';
   headLines?: number;
   tailLines?: number;
   stripSpinner?: boolean;

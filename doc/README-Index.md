@@ -1,4 +1,4 @@
-# persistent-terminal-mcp Documentation Index
+﻿# persistent-terminal-mcp Documentation Index
 
 Last updated: 2026-06-06
 
@@ -44,6 +44,10 @@ Latest decision update: Q-001 through Q-005 have been confirmed and applied. Add
 - [v1.2.0 code review report](./绗竴娆¤凯浠?review/2026-06-06-v1.2.0-code-review.md)
 - [v1.2.0 real driver gap analysis](./绗竴娆¤凯浠?review/2026-06-06-v1.2.0-real-driver-gap-analysis.md)
 
+### Remediation (v1.2.1)
+
+- [v1.2.1 remediation dev report](./第一次迭代/dev/2026-06-06-v1.2.0-dev-report-r1.md)
+- [v1.2.1 real CLI driver acceptance report (re-test)](./第一次迭代/test/2026-06-06-v1.2.0-real-cli-driver-report.md)
 ## Directory Guide
 
 | Directory | Purpose |

@@ -24,6 +24,7 @@ import {
 } from './types.js';
 import { OutputBuffer } from './output-buffer.js';
 import { OutputBufferEntry } from './types.js';
+import { StatusProvider } from './status-provider.js';
 
 /**
  * 终端会话管理器
@@ -374,7 +375,8 @@ export class TerminalManager extends EventEmitter {
           since: options.since ?? 0,
           cursor: result.nextCursor,
           stats: result.stats,
-          status: this.buildReadStatus(session)
+          status: this.buildReadStatus(session),
+          filter: metadata
         };
       }
 
@@ -400,7 +402,8 @@ export class TerminalManager extends EventEmitter {
           since: options.since ?? 0,
           cursor: result.nextCursor,
           stats: result.stats,
-          status: this.buildReadStatus(session)
+          status: this.buildReadStatus(session),
+          filter: metadata
         };
       }
 
@@ -576,6 +579,37 @@ export class TerminalManager extends EventEmitter {
       throw error;
     }
 
+    // Check statusFile first (cooperative confidence > heuristic)
+    let statusFileResult: TerminalStatusResult['statusFile'] | undefined;
+    let cooperativeStatus: string | undefined;
+    if (session.statusFile) {
+      try {
+        const provider = new StatusProvider();
+        const fileResult = await provider.readStatusFile(session.statusFile);
+        const fileName = session.statusFile.split(/[\\/]/).pop() || session.statusFile;
+        if (fileResult.available && fileResult.parsed) {
+          cooperativeStatus = fileResult.data?.status;
+          const sf: NonNullable<TerminalStatusResult['statusFile']> = {
+            available: true,
+            path: fileName,
+            parsed: true
+          };
+          if (fileResult.data) {
+            sf.data = fileResult.data;
+          }
+          statusFileResult = sf;
+        } else if (fileResult.available) {
+          statusFileResult = {
+            available: true,
+            path: fileName,
+            parsed: false
+          };
+        }
+      } catch {
+        // Non-fatal: status file read failure falls back to heuristic
+      }
+    }
+
     // Process status
     let processStatus: 'active' | 'terminated' | 'missing';
     if (session.status === 'terminated') {
@@ -609,6 +643,14 @@ export class TerminalManager extends EventEmitter {
       } else {
         semanticStatus = 'running';
         semanticStatusConfidence = 'heuristic';
+      }
+    }
+
+    // Cooperative status from statusFile overrides heuristic
+    if (cooperativeStatus) {
+      if (['running', 'waiting_input', 'completed', 'error'].includes(cooperativeStatus)) {
+        semanticStatus = cooperativeStatus as TerminalStatusResult['semanticStatus'];
+        semanticStatusConfidence = 'cooperative';
       }
     }
 
@@ -649,7 +691,8 @@ export class TerminalManager extends EventEmitter {
         signal: session.exitSignal ?? null
       } : null,
       cursors: { parsed: parsedCursor, raw: rawCursor },
-      outputPreview
+      outputPreview,
+      statusFile: statusFileResult ?? null
     };
   }
 

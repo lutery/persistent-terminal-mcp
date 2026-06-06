@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { TerminalSession, TerminalCreateOptions, TerminalWriteOptions, TerminalReadOptions, TerminalReadResult, TerminalListResult, TerminalManagerConfig, TerminalStatsResult, TerminalRawReadOptions, TerminalRawReadResult } from './types.js';
+import { TerminalSession, TerminalCreateOptions, TerminalWriteOptions, TerminalReadOptions, TerminalReadResult, TerminalListResult, TerminalManagerConfig, TerminalStatsResult, TerminalRawReadOptions, TerminalRawReadResult, TerminalStatusResult, TerminalStatusOptions, PatternWaitOptions, PatternWaitResult, InitResult, ResumeTerminalOptions } from './types.js';
 /**
  * 终端会话管理器
  * 负责创建、管理和维护持久化的终端会话
@@ -38,6 +38,10 @@ export declare class TerminalManager extends EventEmitter {
      */
     getTerminalStats(terminalId: string): Promise<TerminalStatsResult>;
     /**
+     * 获取终端结构化状态快照
+     */
+    getTerminalStatus(terminalId: string, options?: TerminalStatusOptions): Promise<TerminalStatusResult>;
+    /**
      * 检查终端是否正在运行命令
      * 通过检查最后一次活动时间来判断
      */
@@ -47,6 +51,36 @@ export declare class TerminalManager extends EventEmitter {
      * 用于确保命令执行完成后再读取输出
      */
     waitForOutputStable(terminalId: string, timeout?: number, stableTime?: number): Promise<void>;
+    /**
+     * Wait for a regex pattern to appear in terminal output
+     */
+    waitForPattern(options: PatternWaitOptions): Promise<PatternWaitResult>;
+    /**
+     * Build a bounded tail snapshot from terminal output
+     */
+    private buildSnapshot;
+    /**
+     * Strip ANSI escape sequences from raw terminal output
+     */
+    private stripAnsiSequences;
+    /**
+     * Skip an ANSI escape sequence starting at the given index, return the index of the last char
+     */
+    private skipAnsiInString;
+    /**
+     * Create a terminal with initialization commands and ready-pattern waiting
+     */
+    createTerminalWithInit(options: TerminalCreateOptions): Promise<{
+        terminalId: string;
+        init: InitResult;
+    }>;
+    /**
+     * Resume a CLI agent session in a new terminal (D-009: new PTY + resume command)
+     */
+    resumeTerminal(options: ResumeTerminalOptions): Promise<{
+        terminalId: string;
+        init: InitResult;
+    }>;
     /**
      * 列出所有终端会话
      */

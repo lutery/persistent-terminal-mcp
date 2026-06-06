@@ -8,6 +8,9 @@ export { TerminalManager } from './terminal-manager.js';
 export { WebUIManager } from './web-ui-manager.js';
 export { WebUIServer } from './web-ui-server.js';
 export { RestApiServer } from './rest-api.js';
+export { ResultParser } from './result-parser.js';
+export { StatusProvider } from './status-provider.js';
+export { OutputFilter } from './output-filter.js';
 /**
  * 日志输出函数 - 只在调试模式下输出到 stderr
  * MCP 使用 stdio 进行 JSON-RPC 通信，所以日志必须输出到 stderr

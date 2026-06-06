@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { ResultParser } from './result-parser.js';
 /**
  * REST API 服务器
  * 提供 HTTP 接口来管理终端会话
@@ -58,22 +59,57 @@ export class RestApiServer {
         this.app.post('/terminals', async (req, res) => {
             try {
                 const input = req.body;
-                const terminalId = await this.terminalManager.createTerminal(input);
-                const session = this.terminalManager.getTerminalInfo(terminalId);
-                if (!session) {
-                    res.status(500).json({
-                        error: 'Failed to retrieve session info'
+                const initOptions = input.initCommands || input.readyPattern || input.readyTimeoutMs || input.initFailurePattern || input.statusFile;
+                if (initOptions) {
+                    // Use createTerminalWithInit when init options are provided
+                    const result = await this.terminalManager.createTerminalWithInit({
+                        shell: input.shell,
+                        cwd: input.cwd,
+                        env: input.env,
+                        cols: input.cols,
+                        rows: input.rows,
+                        initCommands: input.initCommands,
+                        readyPattern: input.readyPattern,
+                        readyTimeoutMs: input.readyTimeoutMs,
+                        initFailurePattern: input.initFailurePattern,
+                        statusFile: input.statusFile
                     });
-                    return;
+                    const session = this.terminalManager.getTerminalInfo(result.terminalId);
+                    if (!session) {
+                        res.status(500).json({
+                            error: 'Failed to retrieve session info'
+                        });
+                        return;
+                    }
+                    res.status(201).json({
+                        terminalId: result.terminalId,
+                        status: session.status,
+                        pid: session.pid,
+                        shell: session.shell,
+                        cwd: session.cwd,
+                        created: session.created.toISOString(),
+                        init: result.init
+                    });
                 }
-                res.status(201).json({
-                    terminalId,
-                    status: session.status,
-                    pid: session.pid,
-                    shell: session.shell,
-                    cwd: session.cwd,
-                    created: session.created.toISOString()
-                });
+                else {
+                    // Original path without init options
+                    const terminalId = await this.terminalManager.createTerminal(input);
+                    const session = this.terminalManager.getTerminalInfo(terminalId);
+                    if (!session) {
+                        res.status(500).json({
+                            error: 'Failed to retrieve session info'
+                        });
+                        return;
+                    }
+                    res.status(201).json({
+                        terminalId,
+                        status: session.status,
+                        pid: session.pid,
+                        shell: session.shell,
+                        cwd: session.cwd,
+                        created: session.created.toISOString()
+                    });
+                }
             }
             catch (error) {
                 res.status(400).json({
@@ -175,14 +211,19 @@ export class RestApiServer {
                 const mode = req.query.mode || undefined;
                 const headLines = req.query.headLines ? parseInt(req.query.headLines) : undefined;
                 const tailLines = req.query.tailLines ? parseInt(req.query.tailLines) : undefined;
-                const result = await this.terminalManager.readFromTerminal({
+                const adapter = req.query.adapter || undefined;
+                const readOptions = {
                     terminalId: terminalId,
                     since: since || undefined,
                     maxLines: maxLines || undefined,
                     mode: mode || undefined,
                     headLines: headLines || undefined,
                     tailLines: tailLines || undefined
-                });
+                };
+                if (adapter) {
+                    readOptions.adapter = adapter;
+                }
+                const result = await this.terminalManager.readFromTerminal(readOptions);
                 res.json(result);
             }
             catch (error) {
@@ -252,6 +293,178 @@ export class RestApiServer {
                 });
             }
         });
+        // 获取终端结构化状态 (v1.2.0)
+        this.app.get('/terminals/:terminalId/status', async (req, res) => {
+            try {
+                const { terminalId } = req.params;
+                if (!terminalId) {
+                    res.status(400).json({ error: 'Terminal ID is required' });
+                    return;
+                }
+                const options = {};
+                if (req.query.includeOutputPreview === 'true') {
+                    options.includeOutputPreview = true;
+                }
+                if (req.query.statusFile && typeof req.query.statusFile === 'string') {
+                    options.statusFile = req.query.statusFile;
+                }
+                const result = await this.terminalManager.getTerminalStatus(terminalId, options);
+                res.json(result);
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                if (message.includes('not found')) {
+                    res.status(404).json({
+                        error: 'Terminal not found',
+                        message
+                    });
+                }
+                else {
+                    res.status(500).json({
+                        error: 'Failed to get terminal status',
+                        message
+                    });
+                }
+            }
+        });
+        // 等待模式匹配 (v1.2.0)
+        this.app.post('/terminals/:terminalId/wait-pattern', async (req, res) => {
+            try {
+                const { terminalId } = req.params;
+                const { pattern, timeoutMs, pollIntervalMs, source, since, snapshotLines, maxChars } = req.body;
+                if (!terminalId) {
+                    res.status(400).json({ error: 'Terminal ID is required' });
+                    return;
+                }
+                if (!pattern || typeof pattern !== 'string') {
+                    res.status(400).json({ error: 'pattern (string) is required' });
+                    return;
+                }
+                const options = {
+                    terminalId,
+                    pattern
+                };
+                if (timeoutMs !== undefined)
+                    options.timeoutMs = timeoutMs;
+                if (pollIntervalMs !== undefined)
+                    options.pollIntervalMs = pollIntervalMs;
+                if (source !== undefined)
+                    options.source = source;
+                if (since !== undefined)
+                    options.since = since;
+                if (snapshotLines !== undefined)
+                    options.snapshotLines = snapshotLines;
+                if (maxChars !== undefined)
+                    options.maxChars = maxChars;
+                const result = await this.terminalManager.waitForPattern(options);
+                res.json(result);
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                if (message.includes('not found')) {
+                    res.status(404).json({
+                        error: 'Terminal not found',
+                        message
+                    });
+                }
+                else {
+                    res.status(400).json({
+                        error: 'Failed to wait for pattern',
+                        message
+                    });
+                }
+            }
+        });
+        // 等待任务结果并解析 (v1.2.0)
+        this.app.post('/terminals/:terminalId/wait-result', async (req, res) => {
+            try {
+                const { terminalId } = req.params;
+                const { timeoutMs, pollIntervalMs, since, maxChars } = req.body;
+                if (!terminalId) {
+                    res.status(400).json({ error: 'Terminal ID is required' });
+                    return;
+                }
+                // Step 1: Wait for <task_result> pattern
+                const waitOptions = {
+                    terminalId,
+                    pattern: '<task_result>[\\s\\S]*?</task_result>'
+                };
+                if (timeoutMs !== undefined)
+                    waitOptions.timeoutMs = timeoutMs;
+                if (pollIntervalMs !== undefined)
+                    waitOptions.pollIntervalMs = pollIntervalMs;
+                if (since !== undefined)
+                    waitOptions.since = since;
+                if (maxChars !== undefined)
+                    waitOptions.maxChars = maxChars;
+                const waitResult = await this.terminalManager.waitForPattern(waitOptions);
+                // Step 2: Parse matched text with ResultParser
+                let parseResult = null;
+                if (waitResult.matched && waitResult.match?.text) {
+                    const parser = new ResultParser();
+                    parseResult = parser.parseTaskResult(waitResult.match.text);
+                }
+                res.json({
+                    waitResult,
+                    parseResult
+                });
+            }
+            catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                if (message.includes('not found')) {
+                    res.status(404).json({
+                        error: 'Terminal not found',
+                        message
+                    });
+                }
+                else {
+                    res.status(400).json({
+                        error: 'Failed to wait for result',
+                        message
+                    });
+                }
+            }
+        });
+        // 恢复终端会话 (v1.2.0)
+        this.app.post('/terminals/:terminalId/resume', async (req, res) => {
+            try {
+                const { sessionId, cwd, shell, initCommands, readyPattern, readyTimeoutMs, resumeFromTerminalId } = req.body;
+                if (!sessionId || typeof sessionId !== 'string') {
+                    res.status(400).json({ error: 'sessionId (string) is required' });
+                    return;
+                }
+                const options = {
+                    sessionId
+                };
+                if (cwd !== undefined)
+                    options.cwd = cwd;
+                if (shell !== undefined)
+                    options.shell = shell;
+                if (initCommands !== undefined)
+                    options.initCommands = initCommands;
+                if (readyPattern !== undefined)
+                    options.readyPattern = readyPattern;
+                if (readyTimeoutMs !== undefined)
+                    options.readyTimeoutMs = readyTimeoutMs;
+                if (resumeFromTerminalId !== undefined)
+                    options.resumeFromTerminalId = resumeFromTerminalId;
+                const result = await this.terminalManager.resumeTerminal(options);
+                const session = this.terminalManager.getTerminalInfo(result.terminalId);
+                res.status(201).json({
+                    terminalId: result.terminalId,
+                    init: result.init,
+                    pid: session?.pid,
+                    shell: session?.shell,
+                    cwd: session?.cwd
+                });
+            }
+            catch (error) {
+                res.status(400).json({
+                    error: 'Failed to resume terminal',
+                    message: error instanceof Error ? error.message : String(error)
+                });
+            }
+        });
         // 获取管理器统计信息
         this.app.get('/stats', (req, res) => {
             try {
@@ -269,17 +482,22 @@ export class RestApiServer {
         this.app.get('/', (req, res) => {
             res.json({
                 name: 'Persistent Terminal REST API',
-                version: '1.0.0',
+                version: '1.2.0',
                 description: 'REST API for managing persistent terminal sessions',
                 endpoints: {
                     'GET /health': 'Health check and stats',
-                    'POST /terminals': 'Create a new terminal session',
+                    'POST /terminals': 'Create a new terminal session (supports init options)',
                     'GET /terminals': 'List all terminal sessions',
                     'GET /terminals/:id': 'Get terminal session info',
                     'POST /terminals/:id/input': 'Send input to terminal',
-                    'GET /terminals/:id/output': 'Read terminal output',
+                    'GET /terminals/:id/output': 'Read terminal output (supports adapter param)',
                     'DELETE /terminals/:id': 'Terminate terminal session',
                     'PUT /terminals/:id/resize': 'Resize terminal',
+                    'GET /terminals/:id/stats': 'Get terminal buffer statistics',
+                    'GET /terminals/:id/status': 'Get terminal structured status snapshot (v1.2.0)',
+                    'POST /terminals/:id/wait-pattern': 'Wait for a regex pattern in terminal output (v1.2.0)',
+                    'POST /terminals/:id/wait-result': 'Wait for task_result XML and parse it (v1.2.0)',
+                    'POST /terminals/:id/resume': 'Resume a CLI agent session in a new terminal (v1.2.0)',
                     'GET /stats': 'Get manager statistics'
                 },
                 documentation: 'See README.md for detailed usage instructions'

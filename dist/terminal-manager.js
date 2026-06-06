@@ -2,6 +2,7 @@ import { spawn } from 'node-pty';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import { OutputBuffer } from './output-buffer.js';
+import { StatusProvider } from './status-provider.js';
 /**
  * 终端会话管理器
  * 负责创建、管理和维护持久化的终端会话
@@ -121,6 +122,8 @@ export class TerminalManager extends EventEmitter {
             ptyProcess.onExit((e) => {
                 session.status = 'terminated';
                 session.lastActivity = new Date();
+                session.exitCode = e.exitCode ?? null;
+                session.exitSignal = e.signal ? String(e.signal) : null;
                 this.emit('terminalExit', terminalId, e.exitCode, e.signal);
                 const resolver = this.exitResolvers.get(terminalId);
                 if (resolver) {
@@ -275,6 +278,61 @@ export class TerminalManager extends EventEmitter {
                     status: this.buildReadStatus(session)
                 };
             }
+            // content_only mode: filter noise from full output
+            if (mode === 'content_only') {
+                const buffer = this.outputBuffers.get(terminalId);
+                if (!buffer) {
+                    const error = new Error(`Terminal ${terminalId} buffer not found`);
+                    error.code = 'TERMINAL_NOT_FOUND';
+                    error.terminalId = terminalId;
+                    throw error;
+                }
+                const result = buffer.readSmart({ mode: 'full' });
+                const fullText = result.entries.map(e => e.content).join('\n');
+                const { OutputFilter } = await import('./output-filter.js');
+                const filter = new OutputFilter();
+                const filterOptions = {};
+                if (options.adapter) {
+                    filterOptions.adapter = options.adapter;
+                }
+                const { filtered, metadata } = filter.filterContent(fullText, filterOptions);
+                return {
+                    output: filtered,
+                    totalLines: result.totalLines,
+                    hasMore: result.hasMore,
+                    since: options.since ?? 0,
+                    cursor: result.nextCursor,
+                    stats: result.stats,
+                    status: this.buildReadStatus(session),
+                    filter: metadata
+                };
+            }
+            // last_response mode: extract the last AI response using adapter heuristics
+            if (mode === 'last_response') {
+                const buffer = this.outputBuffers.get(terminalId);
+                if (!buffer) {
+                    const error = new Error(`Terminal ${terminalId} not found`);
+                    error.code = 'TERMINAL_NOT_FOUND';
+                    error.terminalId = terminalId;
+                    throw error;
+                }
+                const result = buffer.readSmart({ mode: 'full' });
+                const fullText = result.entries.map(e => e.content).join('\n');
+                const { OutputFilter } = await import('./output-filter.js');
+                const filter = new OutputFilter();
+                const adapter = options.adapter ?? 'generic';
+                const { content, metadata } = filter.extractLastResponse(fullText, adapter);
+                return {
+                    output: content,
+                    totalLines: result.totalLines,
+                    hasMore: result.hasMore,
+                    since: options.since ?? 0,
+                    cursor: result.nextCursor,
+                    stats: result.stats,
+                    status: this.buildReadStatus(session),
+                    filter: metadata
+                };
+            }
             // 如果指定了智能读取模式，使用新的 readSmart 方法
             const cursorPosition = since ?? 0;
             if (mode && mode !== 'full') {
@@ -413,6 +471,134 @@ export class TerminalManager extends EventEmitter {
         };
     }
     /**
+     * 获取终端结构化状态快照
+     */
+    async getTerminalStatus(terminalId, options) {
+        const session = this.sessions.get(terminalId);
+        const outputBuffer = this.outputBuffers.get(terminalId);
+        if (!session) {
+            const error = new Error(`Terminal ${terminalId} not found`);
+            error.code = 'TERMINAL_NOT_FOUND';
+            error.terminalId = terminalId;
+            throw error;
+        }
+        // Check statusFile first (cooperative confidence > heuristic)
+        let statusFileResult;
+        let cooperativeStatus;
+        if (session.statusFile) {
+            try {
+                const provider = new StatusProvider();
+                const fileResult = await provider.readStatusFile(session.statusFile);
+                const fileName = session.statusFile.split(/[\\/]/).pop() || session.statusFile;
+                if (fileResult.available && fileResult.parsed) {
+                    cooperativeStatus = fileResult.data?.status;
+                    const sf = {
+                        available: true,
+                        path: fileName,
+                        parsed: true
+                    };
+                    if (fileResult.data) {
+                        sf.data = fileResult.data;
+                    }
+                    statusFileResult = sf;
+                }
+                else if (fileResult.available) {
+                    statusFileResult = {
+                        available: true,
+                        path: fileName,
+                        parsed: false
+                    };
+                }
+            }
+            catch {
+                // Non-fatal: status file read failure falls back to heuristic
+            }
+        }
+        // Process status
+        let processStatus;
+        if (session.status === 'terminated') {
+            processStatus = 'terminated';
+        }
+        else if (session.status === 'active' || session.status === 'inactive') {
+            processStatus = this.ptyProcesses.has(terminalId) ? 'active' : 'missing';
+        }
+        else {
+            processStatus = 'missing';
+        }
+        // Semantic status heuristics
+        let semanticStatus = 'unknown';
+        let semanticStatusConfidence = 'none';
+        if (processStatus === 'terminated') {
+            semanticStatus = session.exitCode === 0 ? 'completed' : 'error';
+            semanticStatusConfidence = 'heuristic';
+        }
+        else if (processStatus === 'active') {
+            const now = Date.now();
+            const promptAge = session.lastPromptAt ? (now - session.lastPromptAt.getTime()) : Infinity;
+            if (session.hasPrompt && !session.pendingCommand) {
+                semanticStatus = 'waiting_input';
+                semanticStatusConfidence = 'heuristic';
+            }
+            else if (session.pendingCommand) {
+                semanticStatus = 'running';
+                semanticStatusConfidence = 'heuristic';
+            }
+            else if (promptAge < 5000) {
+                semanticStatus = 'waiting_input';
+                semanticStatusConfidence = 'heuristic';
+            }
+            else {
+                semanticStatus = 'running';
+                semanticStatusConfidence = 'heuristic';
+            }
+        }
+        // Cooperative status from statusFile overrides heuristic
+        if (cooperativeStatus) {
+            if (['running', 'waiting_input', 'completed', 'error'].includes(cooperativeStatus)) {
+                semanticStatus = cooperativeStatus;
+                semanticStatusConfidence = 'cooperative';
+            }
+        }
+        // Cursors
+        const parsedCursor = outputBuffer?.getCurrentLineNumber() ?? 0;
+        const rawChunks = this.rawOutputBuffers.get(terminalId);
+        const rawCursor = rawChunks?.length ?? 0;
+        // Output preview
+        let outputPreview;
+        if (options?.includeOutputPreview && outputBuffer) {
+            const result = outputBuffer.readSmart({ mode: 'tail', tailLines: 20 });
+            outputPreview = result.entries.map(e => e.content).join('\n');
+            if (outputPreview.length > 2000) {
+                outputPreview = outputPreview.slice(0, 2000) + '\n... [truncated]';
+            }
+        }
+        return {
+            terminalId: session.id,
+            processStatus,
+            semanticStatus,
+            semanticStatusConfidence,
+            lastActivity: session.lastActivity.toISOString(),
+            pendingCommand: session.pendingCommand ? {
+                command: session.pendingCommand.command,
+                startedAt: session.pendingCommand.startedAt.toISOString(),
+                completedAt: session.pendingCommand.completedAt?.toISOString() ?? null
+            } : null,
+            lastCommand: session.lastCommand ? {
+                command: session.lastCommand.command,
+                startedAt: session.lastCommand.startedAt.toISOString(),
+                completedAt: session.lastCommand.completedAt?.toISOString() ?? null
+            } : null,
+            promptVisible: Boolean(session.hasPrompt),
+            exit: processStatus === 'terminated' ? {
+                code: session.exitCode ?? null,
+                signal: session.exitSignal ?? null
+            } : null,
+            cursors: { parsed: parsedCursor, raw: rawCursor },
+            outputPreview,
+            statusFile: statusFileResult ?? null
+        };
+    }
+    /**
      * 检查终端是否正在运行命令
      * 通过检查最后一次活动时间来判断
      */
@@ -453,6 +639,335 @@ export class TerminalManager extends EventEmitter {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
         // 超时也返回，不抛出错误
+    }
+    /**
+     * Wait for a regex pattern to appear in terminal output
+     */
+    async waitForPattern(options) {
+        const { terminalId, pattern, timeoutMs = 30000, pollIntervalMs = 250, source = 'parsed', since, snapshotLines = 80, maxChars = 12000 } = options;
+        const session = this.sessions.get(terminalId);
+        const outputBuffer = this.outputBuffers.get(terminalId);
+        const rawBuffer = this.rawOutputBuffers.get(terminalId);
+        if (!session || !outputBuffer) {
+            const error = new Error(`Terminal ${terminalId} not found`);
+            error.code = 'TERMINAL_NOT_FOUND';
+            error.terminalId = terminalId;
+            throw error;
+        }
+        // Validate regex pattern before polling
+        let regex;
+        try {
+            regex = new RegExp(pattern, 'm');
+        }
+        catch (err) {
+            const snapshot = `Invalid regex pattern "${pattern}": ${err instanceof Error ? err.message : String(err)}`;
+            return {
+                matched: false,
+                timedOut: false,
+                elapsedMs: 0,
+                snapshot
+            };
+        }
+        // Clamp pollIntervalMs to max 2000ms
+        const interval = Math.min(pollIntervalMs, 2000);
+        const startTime = Date.now();
+        let currentSince = since ?? 0;
+        while (Date.now() - startTime < timeoutMs) {
+            // Check if the process has exited during the wait
+            if (session.status !== 'active') {
+                const exitInfo = session.exitCode !== undefined
+                    ? `Process exited with code ${session.exitCode}${session.exitSignal ? `, signal ${session.exitSignal}` : ''}`
+                    : 'Process terminated';
+                const tailOutput = this.buildSnapshot(outputBuffer, rawBuffer, source, snapshotLines, maxChars);
+                return {
+                    matched: false,
+                    timedOut: false,
+                    elapsedMs: Date.now() - startTime,
+                    snapshot: `${exitInfo}\n${tailOutput}`
+                };
+            }
+            // Read content based on source mode
+            let content;
+            let nextCursor;
+            if (source === 'raw' || source === 'cleanRaw') {
+                const available = rawBuffer
+                    ? rawBuffer.filter(entry => entry.sequence > currentSince)
+                    : [];
+                content = available.map(entry => entry.chunk).join('');
+                nextCursor = available.length > 0 ? available[available.length - 1].sequence : currentSince;
+                if (source === 'cleanRaw') {
+                    content = this.stripAnsiSequences(content);
+                }
+            }
+            else {
+                // parsed (default)
+                const readResult = outputBuffer.readSmart({ since: currentSince, mode: 'full' });
+                content = readResult.entries.map(entry => entry.content).join('\n');
+                nextCursor = readResult.nextCursor;
+            }
+            // Test the pattern against the content
+            const match = regex.exec(content);
+            if (match) {
+                const result = {
+                    matched: true,
+                    match: {
+                        text: match[0],
+                        groups: match.length > 1 ? Array.from(match).slice(1) : undefined,
+                        namedGroups: match.groups ?? undefined
+                    },
+                    timedOut: false,
+                    elapsedMs: Date.now() - startTime,
+                    cursor: nextCursor
+                };
+                this.emit('patternMatched', { terminalId, pattern, match: result });
+                return result;
+            }
+            // Update cursor for incremental scanning
+            currentSince = nextCursor;
+            // Wait before next poll
+            await new Promise(resolve => setTimeout(resolve, interval));
+        }
+        // Timed out
+        const tailOutput = this.buildSnapshot(outputBuffer, rawBuffer, source, snapshotLines, maxChars);
+        return {
+            matched: false,
+            timedOut: true,
+            elapsedMs: Date.now() - startTime,
+            snapshot: tailOutput
+        };
+    }
+    /**
+     * Build a bounded tail snapshot from terminal output
+     */
+    buildSnapshot(outputBuffer, rawBuffer, source, snapshotLines, maxChars) {
+        let snapshot;
+        if (source === 'raw' || source === 'cleanRaw') {
+            const chunks = rawBuffer ?? [];
+            const tailChunks = chunks.slice(-snapshotLines);
+            snapshot = tailChunks.map(c => c.chunk).join('');
+            if (source === 'cleanRaw') {
+                snapshot = this.stripAnsiSequences(snapshot);
+            }
+        }
+        else {
+            const result = outputBuffer.readSmart({ mode: 'tail', tailLines: snapshotLines });
+            snapshot = result.entries.map(e => e.content).join('\n');
+        }
+        if (snapshot.length > maxChars) {
+            snapshot = snapshot.slice(snapshot.length - maxChars);
+        }
+        return snapshot;
+    }
+    /**
+     * Strip ANSI escape sequences from raw terminal output
+     */
+    stripAnsiSequences(raw) {
+        if (!raw)
+            return raw;
+        const lines = [];
+        let currentLine = '';
+        for (let i = 0; i < raw.length; i++) {
+            const char = raw[i];
+            if (char === '') {
+                // Skip ANSI escape sequence
+                i = this.skipAnsiInString(raw, i);
+                continue;
+            }
+            if (char === '\r') {
+                const nextChar = raw[i + 1];
+                if (nextChar === '\n') {
+                    continue;
+                }
+                currentLine = '';
+                continue;
+            }
+            if (char === '\n') {
+                lines.push(currentLine);
+                currentLine = '';
+                continue;
+            }
+            if (char === '\b') {
+                currentLine = currentLine.slice(0, -1);
+                continue;
+            }
+            const code = char.charCodeAt(0);
+            if (code < 32 && code !== 9) {
+                continue;
+            }
+            currentLine += char;
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        return lines.join('\n').trim();
+    }
+    /**
+     * Skip an ANSI escape sequence starting at the given index, return the index of the last char
+     */
+    skipAnsiInString(input, startIndex) {
+        let index = startIndex + 1;
+        if (index >= input.length) {
+            return startIndex;
+        }
+        const next = input[index];
+        if (next === '[') {
+            index++;
+            while (index < input.length) {
+                const ch = input[index];
+                if (ch >= '@' && ch <= '~') {
+                    return index;
+                }
+                index++;
+            }
+            return input.length - 1;
+        }
+        if (next === ']') {
+            index++;
+            while (index < input.length) {
+                const ch = input[index];
+                if (ch === '') {
+                    return index;
+                }
+                if (ch === '' && input[index + 1] === '\\') {
+                    return index + 1;
+                }
+                index++;
+            }
+            return input.length - 1;
+        }
+        return index;
+    }
+    /**
+     * Create a terminal with initialization commands and ready-pattern waiting
+     */
+    async createTerminalWithInit(options) {
+        const startTime = Date.now();
+        const terminalId = await this.createTerminal({
+            shell: options.shell,
+            cwd: options.cwd,
+            env: options.env,
+            cols: options.cols,
+            rows: options.rows
+        });
+        if (options.statusFile) {
+            const session = this.sessions.get(terminalId);
+            if (session) {
+                session.statusFile = options.statusFile;
+            }
+        }
+        if (!options.initCommands || options.initCommands.length === 0) {
+            return {
+                terminalId,
+                init: {
+                    status: 'not_requested',
+                    elapsedMs: Date.now() - startTime,
+                    outputPreview: ''
+                }
+            };
+        }
+        for (const cmd of options.initCommands) {
+            await this.writeToTerminal({ terminalId, input: cmd });
+            await this.waitForOutputStable(terminalId, 5000, 500);
+        }
+        if (options.readyPattern) {
+            try {
+                const patternResult = await this.waitForPattern({
+                    terminalId,
+                    pattern: options.readyPattern,
+                    timeoutMs: options.readyTimeoutMs ?? 30000
+                });
+                if (patternResult.matched) {
+                    return {
+                        terminalId,
+                        init: {
+                            status: 'ready',
+                            matched: patternResult.match?.text,
+                            elapsedMs: Date.now() - startTime,
+                            outputPreview: ''
+                        }
+                    };
+                }
+                const snapshot = await this.readFromTerminal({
+                    terminalId,
+                    mode: 'tail',
+                    tailLines: 50
+                });
+                return {
+                    terminalId,
+                    init: {
+                        status: 'timeout',
+                        timedOut: true,
+                        elapsedMs: Date.now() - startTime,
+                        outputPreview: snapshot.output.slice(0, 2000)
+                    }
+                };
+            }
+            catch (error) {
+                const snapshot = await this.readFromTerminal({
+                    terminalId,
+                    mode: 'tail',
+                    tailLines: 50
+                });
+                return {
+                    terminalId,
+                    init: {
+                        status: 'failed',
+                        elapsedMs: Date.now() - startTime,
+                        outputPreview: snapshot.output.slice(0, 2000)
+                    }
+                };
+            }
+        }
+        if (options.initFailurePattern) {
+            try {
+                const failResult = await this.waitForPattern({
+                    terminalId,
+                    pattern: options.initFailurePattern,
+                    timeoutMs: options.readyTimeoutMs ?? 10000
+                });
+                if (failResult.matched) {
+                    const snapshot = await this.readFromTerminal({
+                        terminalId,
+                        mode: 'tail',
+                        tailLines: 50
+                    });
+                    return {
+                        terminalId,
+                        init: {
+                            status: 'failed',
+                            matched: failResult.match?.text,
+                            elapsedMs: Date.now() - startTime,
+                            outputPreview: snapshot.output.slice(0, 2000)
+                        }
+                    };
+                }
+            }
+            catch {
+                // Ignore failure pattern errors
+            }
+        }
+        return {
+            terminalId,
+            init: {
+                status: 'ready',
+                elapsedMs: Date.now() - startTime,
+                outputPreview: ''
+            }
+        };
+    }
+    /**
+     * Resume a CLI agent session in a new terminal (D-009: new PTY + resume command)
+     */
+    async resumeTerminal(options) {
+        const resumeCommand = `claude --resume ${options.sessionId}`;
+        const initCommands = [...(options.initCommands ?? []), resumeCommand];
+        return this.createTerminalWithInit({
+            shell: options.shell,
+            cwd: options.cwd,
+            initCommands,
+            readyPattern: options.readyPattern,
+            readyTimeoutMs: options.readyTimeoutMs
+        });
     }
     /**
      * 列出所有终端会话
@@ -662,6 +1177,9 @@ export class TerminalManager extends EventEmitter {
         }
         const seen = new Set();
         let promptDetected = false;
+        let statusChanged = false;
+        const previousHasPrompt = session.hasPrompt;
+        const previousPendingCommand = session.pendingCommand;
         for (const entry of entries) {
             if (!entry || seen.has(entry.sequence)) {
                 continue;
@@ -689,6 +1207,13 @@ export class TerminalManager extends EventEmitter {
         }
         if (!promptDetected && entries.length > 0 && session.pendingCommand) {
             session.hasPrompt = false;
+        }
+        // Check if semantic status changed
+        if (previousHasPrompt !== session.hasPrompt || Boolean(previousPendingCommand) !== Boolean(session.pendingCommand)) {
+            statusChanged = true;
+        }
+        if (statusChanged) {
+            this.emit('statusChanged', { terminalId: session.id, status: { hasPrompt: session.hasPrompt, pendingCommand: session.pendingCommand } });
         }
     }
     trackCommand(session, rawInput, executed) {

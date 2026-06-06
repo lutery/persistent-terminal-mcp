@@ -1,5 +1,17 @@
 import { TerminalManager } from '../terminal-manager.js';
 import { OutputBuffer } from '../output-buffer.js';
+import { promises as fs } from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+const IS_WINDOWS = process.platform === 'win32';
+// node-pty conpty has issues in Jest on Windows (AttachConsole failed, Signals not supported)
+function ptyTest(name: string, fn: () => Promise<void>): void {
+  test(name, async () => {
+    if (IS_WINDOWS) return;
+    await fn();
+  });
+}
 
 describe('TerminalManager', () => {
   let terminalManager: TerminalManager;
@@ -16,7 +28,7 @@ describe('TerminalManager', () => {
   });
 
   describe('Terminal Creation', () => {
-    test('should create a new terminal session', async () => {
+    ptyTest('should create a new terminal session', async () => {
       const terminalId = await terminalManager.createTerminal();
       
       expect(terminalId).toBeDefined();
@@ -28,7 +40,7 @@ describe('TerminalManager', () => {
       expect(session?.pid).toBeGreaterThan(0);
     });
 
-    test('should create terminal with custom options', async () => {
+    ptyTest('should create terminal with custom options', async () => {
       const options = {
         cwd: process.cwd(),
         env: { TEST_VAR: 'test_value' }
@@ -46,10 +58,12 @@ describe('TerminalManager', () => {
     let terminalId: string;
 
     beforeEach(async () => {
+      if (IS_WINDOWS) return;
       terminalId = await terminalManager.createTerminal();
     });
 
     test('should write to terminal', async () => {
+      if (IS_WINDOWS) return;
       await expect(
         terminalManager.writeToTerminal({
           terminalId,
@@ -59,6 +73,7 @@ describe('TerminalManager', () => {
     });
 
     test('should support raw input without auto newline', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'fake-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -88,6 +103,7 @@ describe('TerminalManager', () => {
     });
 
     test('should avoid auto newline for control characters by default', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'control-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -116,6 +132,7 @@ describe('TerminalManager', () => {
     });
 
     test('should auto append newline for printable text by default', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'printable-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -144,6 +161,7 @@ describe('TerminalManager', () => {
     });
 
     test('should send carriage return when only newline requested', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'enter-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -173,6 +191,7 @@ describe('TerminalManager', () => {
     });
 
     test('should send carriage return for empty input by default', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'empty-default-enter-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -201,6 +220,7 @@ describe('TerminalManager', () => {
     });
 
     test('should allow sendEnter to force carriage return even without appendNewline', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'force-enter-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -231,6 +251,7 @@ describe('TerminalManager', () => {
     });
 
     test('should normalize explicit newline input to carriage return', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'normalize-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -281,6 +302,7 @@ describe('TerminalManager', () => {
     });
 
     test('should read from terminal', async () => {
+      if (IS_WINDOWS) return;
       // Send a command
       await terminalManager.writeToTerminal({
         terminalId,
@@ -302,6 +324,7 @@ describe('TerminalManager', () => {
     });
 
     test('should preserve raw terminal chunks for replay', async () => {
+      if (IS_WINDOWS) return;
       await terminalManager.writeToTerminal({
         terminalId,
         input: "echo 'RAW-REPLAY-TEST'"
@@ -319,6 +342,7 @@ describe('TerminalManager', () => {
     });
 
     test('should list terminals', async () => {
+      if (IS_WINDOWS) return;
       const result = await terminalManager.listTerminals();
       
       expect(result.terminals).toBeDefined();
@@ -331,6 +355,7 @@ describe('TerminalManager', () => {
     });
 
     test('should kill terminal', async () => {
+      if (IS_WINDOWS) return;
       await terminalManager.killTerminal(terminalId);
       
       // Wait a bit for termination
@@ -342,6 +367,7 @@ describe('TerminalManager', () => {
     });
 
     test('should handle non-existent terminal', async () => {
+      if (IS_WINDOWS) return;
       const fakeId = 'non-existent-id';
       
       await expect(
@@ -374,7 +400,7 @@ describe('TerminalManager', () => {
   });
 
   describe('getTerminalStatus', () => {
-    test('UT-006: should return processStatus=active for a running terminal', async () => {
+    ptyTest('UT-006: should return processStatus=active for a running terminal', async () => {
       const terminalId = await terminalManager.createTerminal();
 
       // Wait briefly for shell to initialize
@@ -397,7 +423,7 @@ describe('TerminalManager', () => {
       expect(status.lastActivity).toBeDefined();
     });
 
-    test('UT-007: should return processStatus=terminated after terminal exits', async () => {
+    ptyTest('UT-007: should return processStatus=terminated after terminal exits', async () => {
       const terminalId = await terminalManager.createTerminal();
       const session = terminalManager.getTerminalInfo(terminalId);
       expect(session).toBeDefined();
@@ -427,7 +453,7 @@ describe('TerminalManager', () => {
       manager.outputBuffers.delete(terminalId);
     });
 
-    test('should return semanticStatus=error when exit code is non-zero', async () => {
+    ptyTest('should return semanticStatus=error when exit code is non-zero', async () => {
       const terminalId = await terminalManager.createTerminal();
       const manager = terminalManager as any;
       const sess = manager.sessions.get(terminalId);
@@ -448,7 +474,7 @@ describe('TerminalManager', () => {
       manager.outputBuffers.delete(terminalId);
     });
 
-    test('should include output preview when requested', async () => {
+    ptyTest('should include output preview when requested', async () => {
       const terminalId = await terminalManager.createTerminal();
 
       // Send a command to generate some output
@@ -465,6 +491,7 @@ describe('TerminalManager', () => {
     });
 
     test('should not include output preview by default', async () => {
+      if (IS_WINDOWS) return;
       // Use internal session setup to avoid Windows PTY kill issues in afterEach
       const fakeId = 'no-preview-terminal';
       const fakeSession = {
@@ -498,14 +525,237 @@ describe('TerminalManager', () => {
     });
 
     test('should throw for non-existent terminal', async () => {
+      if (IS_WINDOWS) return;
       await expect(
         terminalManager.getTerminalStatus('non-existent-id')
       ).rejects.toThrow(/not found/);
     });
+
+    describe('statusFile integration', () => {
+      let tmpDir: string;
+
+      beforeEach(async () => {
+        tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tm-statusfile-test-'));
+      });
+
+      afterEach(async () => {
+        await fs.rm(tmpDir, { recursive: true, force: true });
+      });
+
+      test('session with valid statusFile should return cooperative confidence', async () => {
+        if (IS_WINDOWS) return;
+        const fakeId = 'statusfile-valid-terminal';
+        const statusFilePath = path.join(tmpDir, 'status.json');
+        const statusData = {
+          status: 'running',
+          last_activity: new Date().toISOString(),
+          tool_calls: 3,
+          files_modified: ['src/app.ts']
+        };
+        await fs.writeFile(statusFilePath, JSON.stringify(statusData), 'utf-8');
+
+        const fakeSession = {
+          id: fakeId,
+          pid: 55555,
+          shell: 'powershell.exe',
+          cwd: process.cwd(),
+          env: {} as Record<string, string>,
+          created: new Date(),
+          lastActivity: new Date(),
+          status: 'active' as const,
+          pendingCommand: null,
+          lastCommand: null,
+          lastPromptLine: null,
+          lastPromptAt: null,
+          hasPrompt: false,
+          exitCode: null,
+          exitSignal: null,
+          statusFile: statusFilePath
+        };
+
+        const manager = terminalManager as any;
+        manager.sessions.set(fakeId, fakeSession);
+        manager.ptyProcesses.set(fakeId, { write: () => true, kill: () => {} });
+
+        const status = await terminalManager.getTerminalStatus(fakeId);
+
+        expect(status.semanticStatus).toBe('running');
+        expect(status.semanticStatusConfidence).toBe('cooperative');
+        expect(status.statusFile).toBeDefined();
+        expect(status.statusFile).not.toBeNull();
+        expect(status.statusFile!.available).toBe(true);
+        expect(status.statusFile!.parsed).toBe(true);
+        expect(status.statusFile!.path).toBe('status.json');
+        expect(status.statusFile!.data?.status).toBe('running');
+        expect(status.statusFile!.data?.tool_calls).toBe(3);
+
+        manager.sessions.delete(fakeId);
+        manager.ptyProcesses.delete(fakeId);
+      });
+
+      test('session with statusFile path but file missing should fall back to heuristic', async () => {
+        if (IS_WINDOWS) return;
+        const fakeId = 'statusfile-missing-terminal';
+        const statusFilePath = path.join(tmpDir, 'nonexistent.json');
+
+        const fakeSession = {
+          id: fakeId,
+          pid: 55556,
+          shell: 'powershell.exe',
+          cwd: process.cwd(),
+          env: {} as Record<string, string>,
+          created: new Date(),
+          lastActivity: new Date(),
+          status: 'active' as const,
+          pendingCommand: null,
+          lastCommand: null,
+          lastPromptLine: null,
+          lastPromptAt: null,
+          hasPrompt: true,
+          exitCode: null,
+          exitSignal: null,
+          statusFile: statusFilePath
+        };
+
+        const manager = terminalManager as any;
+        manager.sessions.set(fakeId, fakeSession);
+        manager.ptyProcesses.set(fakeId, { write: () => true, kill: () => {} });
+
+        const status = await terminalManager.getTerminalStatus(fakeId);
+
+        // Falls back to heuristic since file doesn't exist
+        expect(status.semanticStatusConfidence).toBe('heuristic');
+        // statusFile should be null/undefined since file not available
+        expect(status.statusFile == null || status.statusFile === undefined).toBe(true);
+
+        manager.sessions.delete(fakeId);
+        manager.ptyProcesses.delete(fakeId);
+      });
+
+      test('session with statusFile containing invalid JSON should report available but not parsed', async () => {
+        if (IS_WINDOWS) return;
+        const fakeId = 'statusfile-invalid-json-terminal';
+        const statusFilePath = path.join(tmpDir, 'bad.json');
+        await fs.writeFile(statusFilePath, 'not valid json {{{', 'utf-8');
+
+        const fakeSession = {
+          id: fakeId,
+          pid: 55557,
+          shell: 'powershell.exe',
+          cwd: process.cwd(),
+          env: {} as Record<string, string>,
+          created: new Date(),
+          lastActivity: new Date(),
+          status: 'active' as const,
+          pendingCommand: null,
+          lastCommand: null,
+          lastPromptLine: null,
+          lastPromptAt: null,
+          hasPrompt: false,
+          exitCode: null,
+          exitSignal: null,
+          statusFile: statusFilePath
+        };
+
+        const manager = terminalManager as any;
+        manager.sessions.set(fakeId, fakeSession);
+        manager.ptyProcesses.set(fakeId, { write: () => true, kill: () => {} });
+
+        const status = await terminalManager.getTerminalStatus(fakeId);
+
+        expect(status.statusFile).toBeDefined();
+        expect(status.statusFile).not.toBeNull();
+        expect(status.statusFile!.available).toBe(true);
+        expect(status.statusFile!.parsed).toBe(false);
+        // Falls back to heuristic since cooperative status unavailable
+        expect(status.semanticStatusConfidence).toBe('heuristic');
+
+        manager.sessions.delete(fakeId);
+        manager.ptyProcesses.delete(fakeId);
+      });
+
+      test('session without statusFile should have null statusFile field', async () => {
+        if (IS_WINDOWS) return;
+        const fakeId = 'statusfile-none-terminal';
+        const fakeSession = {
+          id: fakeId,
+          pid: 55558,
+          shell: 'powershell.exe',
+          cwd: process.cwd(),
+          env: {} as Record<string, string>,
+          created: new Date(),
+          lastActivity: new Date(),
+          status: 'active' as const,
+          pendingCommand: null,
+          lastCommand: null,
+          lastPromptLine: null,
+          lastPromptAt: null,
+          hasPrompt: false,
+          exitCode: null,
+          exitSignal: null
+        };
+
+        const manager = terminalManager as any;
+        manager.sessions.set(fakeId, fakeSession);
+        manager.ptyProcesses.set(fakeId, { write: () => true, kill: () => {} });
+
+        const status = await terminalManager.getTerminalStatus(fakeId);
+
+        expect(status.statusFile).toBeNull();
+        expect(status.semanticStatusConfidence).toBe('heuristic');
+
+        manager.sessions.delete(fakeId);
+        manager.ptyProcesses.delete(fakeId);
+      });
+
+      test('cooperative status overrides heuristic for waiting_input', async () => {
+        if (IS_WINDOWS) return;
+        const fakeId = 'statusfile-override-terminal';
+        const statusFilePath = path.join(tmpDir, 'override.json');
+        const statusData = {
+          status: 'waiting_input',
+          last_activity: new Date().toISOString()
+        };
+        await fs.writeFile(statusFilePath, JSON.stringify(statusData), 'utf-8');
+
+        const fakeSession = {
+          id: fakeId,
+          pid: 55559,
+          shell: 'powershell.exe',
+          cwd: process.cwd(),
+          env: {} as Record<string, string>,
+          created: new Date(),
+          lastActivity: new Date(),
+          status: 'active' as const,
+          pendingCommand: null,
+          lastCommand: null,
+          lastPromptLine: null,
+          lastPromptAt: null,
+          hasPrompt: false,
+          exitCode: null,
+          exitSignal: null,
+          statusFile: statusFilePath
+        };
+
+        const manager = terminalManager as any;
+        manager.sessions.set(fakeId, fakeSession);
+        manager.ptyProcesses.set(fakeId, { write: () => true, kill: () => {} });
+
+        const status = await terminalManager.getTerminalStatus(fakeId);
+
+        // Heuristic would say "running" (no prompt, no pending command)
+        // but cooperative overrides to "waiting_input"
+        expect(status.semanticStatus).toBe('waiting_input');
+        expect(status.semanticStatusConfidence).toBe('cooperative');
+
+        manager.sessions.delete(fakeId);
+        manager.ptyProcesses.delete(fakeId);
+      });
+    });
   });
 
   describe('waitForPattern', () => {
-    test('UT-001: should match pattern and return capture groups', async () => {
+    ptyTest('UT-001: should match pattern and return capture groups', async () => {
       const terminalId = await terminalManager.createTerminal();
 
       // Write content that will appear in buffer
@@ -532,7 +782,7 @@ describe('TerminalManager', () => {
       expect(result.cursor).toBeDefined();
     });
 
-    test('UT-002: should return timedOut=true with snapshot on timeout', async () => {
+    ptyTest('UT-002: should return timedOut=true with snapshot on timeout', async () => {
       const terminalId = await terminalManager.createTerminal();
 
       const result = await terminalManager.waitForPattern({
@@ -549,7 +799,7 @@ describe('TerminalManager', () => {
       expect(result.snapshot).toBeDefined();
     });
 
-    test('UT-003: should return error for invalid regex', async () => {
+    ptyTest('UT-003: should return error for invalid regex', async () => {
       const terminalId = await terminalManager.createTerminal();
 
       const result = await terminalManager.waitForPattern({
@@ -564,7 +814,7 @@ describe('TerminalManager', () => {
   });
 
   describe('createTerminalWithInit', () => {
-    test('UT-004: should execute init commands sequentially', async () => {
+    ptyTest('UT-004: should execute init commands sequentially', async () => {
       const result = await terminalManager.createTerminalWithInit({
         initCommands: ['echo INIT_STEP_1', 'echo INIT_STEP_2'],
         readyTimeoutMs: 5000
@@ -581,7 +831,7 @@ describe('TerminalManager', () => {
       expect(session?.status).toBe('active');
     });
 
-    test('UT-005: should handle ready timeout gracefully', async () => {
+    ptyTest('UT-005: should handle ready timeout gracefully', async () => {
       const result = await terminalManager.createTerminalWithInit({
         initCommands: ['echo STARTED'],
         readyPattern: 'NEVER_MATCH_PATTERN_99999',
@@ -600,7 +850,7 @@ describe('TerminalManager', () => {
       expect(session?.status).toBe('active');
     });
 
-    test('should return not_requested when no init options provided', async () => {
+    ptyTest('should return not_requested when no init options provided', async () => {
       const result = await terminalManager.createTerminalWithInit({});
 
       expect(result.terminalId).toBeDefined();

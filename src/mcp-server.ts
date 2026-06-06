@@ -41,7 +41,7 @@ export class PersistentTerminalMcpServer {
     this.server = new McpServer(
       {
         name: 'persistent-terminal-server',
-        version: '1.0.0',
+        version: '1.2.1',
         description: 'MCP server for managing persistent terminal sessions',
         icons: [
           {
@@ -660,6 +660,15 @@ Fix tool: OpenAI Codex
                 outputText += ` (completed ${result.status.lastCommand.completedAt})`;
               }
             }
+          }
+
+          if (result.filter) {
+            outputText += `\n\nFilter:`;
+            outputText += `\n- Mode: ${result.filter.mode}`;
+            outputText += `\n- Adapter: ${result.filter.adapter}`;
+            outputText += `\n- Confidence: ${result.filter.confidence}`;
+            outputText += `\n- Removed: ${result.filter.removedLines} lines`;
+            outputText += `\n- Critical Lines Preserved: ${result.filter.criticalLineCount}`;
           }
 
           return {

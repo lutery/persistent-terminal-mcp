@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-06
+
+### Fixed
+
+Review remediation for v1.2.0 code review findings (7 issues: 2 P0, 4 P1, 1 P2).
+
+- **P0-1**: `getTerminalStatus()` now reads cooperative status from `statusFile` via `StatusProvider`. When valid, `semanticStatusConfidence` returns `'cooperative'` instead of `'heuristic'`. Only filename (not full path) is exposed in response.
+- **P0-2**: `fast-xml-parser` added to `package.json` dependencies (was imported but undeclared).
+- **P1-1**: `test:integration` in `package.json` now includes all 10 sub-scripts (was missing 6 v1.2.0 scripts).
+- **P1-2**: `web-ui-server.test.ts` rewritten as real HTTP integration tests (was fake coverage calling TerminalManager directly).
+- **P1-3**: `read_terminal` filter metadata (mode, adapter, confidence, removedLines, criticalLineCount) now returned in `TerminalReadResult.filter` field and appended to MCP text output. Previously discarded at terminal-manager.ts content_only/last_response branches.
+- **P1-4**: Real CLI driver report sanitized (session IDs and local paths replaced with `[REDACTED]` markers).
+- **P2**: MCP server version updated from hardcoded `'1.0.0'` to `'1.2.1'`. `ReadTerminalInput.mode` extended from 4 to 7 types (added `content_only`, `last_response`, `status`). `CreateTerminalInput` extended with `initCommands`, `readyPattern`, `readyTimeoutMs`, `initFailurePattern`, `statusFile`.
+
+### Changed
+
+- Windows PTY tests now gracefully skip via `IS_WINDOWS` flag and `ptyTest()` helper (no false failures).
+- `web-ui-server.ts` `_dirname` resolution simplified: `typeof __dirname !== 'undefined' ? __dirname : process.cwd()` (removed `import.meta.url` that caused SyntaxError in ts-jest CJS context).
+
 ## [1.2.0] - 2026-06-06
 
 ### Added
