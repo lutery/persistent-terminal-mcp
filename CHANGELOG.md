@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-06-06
+
+### Security
+
+- **[P0] Rx10**: Fixed `resume_terminal` command injection vulnerability. Added sessionId validation with whitelist regex `/^[A-Za-z0-9._:-]+$/` and max length 200 at core (`terminal-manager.ts`), MCP (`mcp-server.ts` zod schema), REST (`rest-api.ts` HTTP 400), and Web UI (`web-ui-server.ts` HTTP 400) layers. 13 security unit tests added covering all attack vectors.
+
+### Fixed
+
+- **[P1] Rx11**: Integration test platform compatibility — 8 PTY-dependent scripts now skip gracefully on Windows (`process.exit(0)` with skip message). Added `test:integration:pty` script for non-Windows environments.
+- **[P1] Rx12**: Test false-green fix — `ptyTest()` helper changed from `return` pattern to `test.skip` pattern, properly separating skipped from passed count. Removed incorrect `if (IS_WINDOWS) return` from 5 statusFile tests that use fake sessions (no PTY needed).
+- **[P1] Rx13**: Sanitized absolute paths in tracked docs — replaced `F:\`, `D:\`, `C:\Users` paths with `[REDACTED]` markers or relative paths.
+- **[P2] Rx14**: REST API version sync — all version strings now consistent at 1.2.2 (`rest-api.ts`, `mcp-server.ts`, `package.json`).
+
+### Review
+
+- Added second-round v1.2.1 remediation code review report.
+- Updated documentation index links for review artifacts.
+
 ## [1.2.1] - 2026-06-06
 
 ### Fixed

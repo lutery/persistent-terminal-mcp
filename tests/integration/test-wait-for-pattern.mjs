@@ -7,6 +7,12 @@
 
 import { TerminalManager } from '../../dist/terminal-manager.js';
 
+// Windows ConPTY skip — node-pty has issues on Windows in standalone scripts
+if (process.platform === 'win32') {
+  console.log('SKIP: PTY-dependent integration test not supported on Windows node-pty/ConPTY');
+  process.exit(0);
+}
+
 console.log('='.repeat(80));
 console.log('测试：模式等待 (wait_for_pattern)');
 console.log('='.repeat(80));

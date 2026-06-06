@@ -6,9 +6,9 @@ import * as os from 'os';
 
 const IS_WINDOWS = process.platform === 'win32';
 // node-pty conpty has issues in Jest on Windows (AttachConsole failed, Signals not supported)
+const maybeTest = IS_WINDOWS ? test.skip : test;
 function ptyTest(name: string, fn: () => Promise<void>): void {
-  test(name, async () => {
-    if (IS_WINDOWS) return;
+  maybeTest(name, async () => {
     await fn();
   });
 }
@@ -543,7 +543,6 @@ describe('TerminalManager', () => {
       });
 
       test('session with valid statusFile should return cooperative confidence', async () => {
-        if (IS_WINDOWS) return;
         const fakeId = 'statusfile-valid-terminal';
         const statusFilePath = path.join(tmpDir, 'status.json');
         const statusData = {
@@ -594,7 +593,6 @@ describe('TerminalManager', () => {
       });
 
       test('session with statusFile path but file missing should fall back to heuristic', async () => {
-        if (IS_WINDOWS) return;
         const fakeId = 'statusfile-missing-terminal';
         const statusFilePath = path.join(tmpDir, 'nonexistent.json');
 
@@ -633,7 +631,6 @@ describe('TerminalManager', () => {
       });
 
       test('session with statusFile containing invalid JSON should report available but not parsed', async () => {
-        if (IS_WINDOWS) return;
         const fakeId = 'statusfile-invalid-json-terminal';
         const statusFilePath = path.join(tmpDir, 'bad.json');
         await fs.writeFile(statusFilePath, 'not valid json {{{', 'utf-8');
@@ -675,7 +672,6 @@ describe('TerminalManager', () => {
       });
 
       test('session without statusFile should have null statusFile field', async () => {
-        if (IS_WINDOWS) return;
         const fakeId = 'statusfile-none-terminal';
         const fakeSession = {
           id: fakeId,
@@ -709,7 +705,6 @@ describe('TerminalManager', () => {
       });
 
       test('cooperative status overrides heuristic for waiting_input', async () => {
-        if (IS_WINDOWS) return;
         const fakeId = 'statusfile-override-terminal';
         const statusFilePath = path.join(tmpDir, 'override.json');
         const statusData = {

@@ -57,7 +57,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
     test('should include v1.2.0 endpoints in documentation', async () => {
       const res = await request(baseUrl, 'GET', '/');
       expect(res.status).toBe(200);
-      expect(res.body.version).toBe('1.2.0');
+      expect(res.body.version).toBe('1.2.2');
       expect(res.body.endpoints).toHaveProperty('GET /terminals/:id/status');
       expect(res.body.endpoints).toHaveProperty('POST /terminals/:id/wait-pattern');
       expect(res.body.endpoints).toHaveProperty('POST /terminals/:id/wait-result');
@@ -217,6 +217,14 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
       const res = await request(baseUrl, 'POST', '/terminals/some-id/resume', {});
       expect(res.status).toBe(400);
       expect(res.body.error).toBeDefined();
+    });
+
+    test('should return 400 for sessionId with shell metacharacters (command injection)', async () => {
+      const res = await request(baseUrl, 'POST', '/terminals/some-id/resume', {
+        sessionId: 'abc&echo hacked'
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('INVALID_SESSION_ID');
     });
   });
 });

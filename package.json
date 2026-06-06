@@ -1,6 +1,6 @@
 {
   "name": "persistent-terminal-mcp",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "MCP server for managing persistent terminal sessions using node-pty",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -71,6 +71,7 @@
     "test:integration:result": "node tests/integration/test-wait-for-result.mjs",
     "test:integration:status": "node tests/integration/test-terminal-status.mjs",
     "test:integration:resume": "node tests/integration/test-resume-terminal.mjs",
+    "test:integration:pty": "npm run test:integration:terminal && npm run test:integration:raw-tail && npm run test:integration:init && npm run test:integration:pattern && npm run test:integration:result && npm run test:integration:status && npm run test:integration:resume",
     "test:all": "npm run test:unit && npm run test:integration",
     "clean": "rm -rf dist",
     "prepare": "npm run build",

@@ -77,9 +77,9 @@ function httpDelete(
 // ---------------------------------------------------------------------------
 // Skip helper for tests requiring PTY on Windows
 // ---------------------------------------------------------------------------
+const maybeTest = !ptyAvailable ? test.skip : test;
 function ptyTest(name: string, fn: () => Promise<void>): void {
-  test(name, async () => {
-    if (!ptyAvailable) return; // skip on Windows when PTY unavailable
+  maybeTest(name, async () => {
     await fn();
   });
 }

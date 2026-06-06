@@ -41,7 +41,7 @@ export class PersistentTerminalMcpServer {
     this.server = new McpServer(
       {
         name: 'persistent-terminal-server',
-        version: '1.2.1',
+        version: '1.2.2',
         description: 'MCP server for managing persistent terminal sessions',
         icons: [
           {
@@ -1239,7 +1239,7 @@ The more detailed, the better the fix!`),
       'resume_terminal',
       'Resume a CLI agent session in a new terminal. Creates a new PTY and runs the resume command (e.g., claude --resume <session-id>). This is NOT PTY resurrection - a new process is created.',
       {
-        sessionId: z.string().describe('Session ID to resume (e.g., Claude session ID)'),
+        sessionId: z.string().regex(/^[A-Za-z0-9._:-]+$/, 'sessionId must contain only alphanumeric characters, dots, underscores, hyphens, colons').max(200).describe('Session ID to resume (e.g., Claude session ID)'),
         cwd: z.string().optional().describe('Working directory for the resumed session'),
         shell: z.string().optional().describe('Shell to use'),
         initCommands: z.array(z.string()).optional().describe('Commands to execute before the resume command'),

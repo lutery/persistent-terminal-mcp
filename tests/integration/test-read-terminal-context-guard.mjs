@@ -9,6 +9,12 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+// Windows ConPTY skip — node-pty has issues on Windows in standalone scripts
+if (process.platform === 'win32') {
+  console.log('SKIP: PTY-dependent integration test not supported on Windows node-pty/ConPTY');
+  process.exit(0);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const serverPath = join(__dirname, '..', '..', 'dist', 'index.js');

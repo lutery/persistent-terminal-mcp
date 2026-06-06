@@ -26,6 +26,21 @@ import { OutputBuffer } from './output-buffer.js';
 import { OutputBufferEntry } from './types.js';
 import { StatusProvider } from './status-provider.js';
 
+const SESSION_ID_REGEX = /^[A-Za-z0-9._:-]+$/;
+const SESSION_ID_MAX_LENGTH = 200;
+
+function validateSessionId(sessionId: string): void {
+  if (!sessionId || sessionId.length === 0) {
+    throw new Error('INVALID_SESSION_ID: sessionId must not be empty');
+  }
+  if (sessionId.length > SESSION_ID_MAX_LENGTH) {
+    throw new Error(`INVALID_SESSION_ID: sessionId must not exceed ${SESSION_ID_MAX_LENGTH} characters`);
+  }
+  if (!SESSION_ID_REGEX.test(sessionId)) {
+    throw new Error('INVALID_SESSION_ID: sessionId must contain only alphanumeric characters, dots, underscores, hyphens, colons - no spaces, quotes, or shell metacharacters');
+  }
+}
+
 /**
  * 终端会话管理器
  * 负责创建、管理和维护持久化的终端会话
@@ -1123,6 +1138,7 @@ export class TerminalManager extends EventEmitter {
    * Resume a CLI agent session in a new terminal (D-009: new PTY + resume command)
    */
   async resumeTerminal(options: ResumeTerminalOptions): Promise<{ terminalId: string; init: InitResult }> {
+    validateSessionId(options.sessionId);
     const resumeCommand = `claude --resume ${options.sessionId}`;
 
     const initCommands = [...(options.initCommands ?? []), resumeCommand];

@@ -353,6 +353,11 @@ export class WebUIServer {
                     res.status(400).json({ error: 'sessionId is required' });
                     return;
                 }
+                // Validate sessionId format to prevent command injection
+                if (typeof sessionId !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(sessionId) || sessionId.length > 200) {
+                    res.status(400).json({ error: 'INVALID_SESSION_ID: sessionId must contain only alphanumeric characters, dots, underscores, hyphens, colons and be at most 200 characters' });
+                    return;
+                }
                 const result = await this.terminalManager.resumeTerminal({
                     sessionId,
                     shell,

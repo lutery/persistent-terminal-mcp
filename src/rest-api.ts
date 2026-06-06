@@ -478,6 +478,12 @@ export class RestApiServer {
           return;
         }
 
+        // Validate sessionId format to prevent command injection
+        if (!/^[A-Za-z0-9._:-]+$/.test(sessionId) || sessionId.length > 200) {
+          res.status(400).json({ error: 'INVALID_SESSION_ID: sessionId must contain only alphanumeric characters, dots, underscores, hyphens, colons and be at most 200 characters' });
+          return;
+        }
+
         const options: ResumeTerminalOptions = {
           sessionId
         };
@@ -523,7 +529,7 @@ export class RestApiServer {
     this.app.get('/', (req: Request, res: Response) => {
       res.json({
         name: 'Persistent Terminal REST API',
-        version: '1.2.0',
+        version: '1.2.2',
         description: 'REST API for managing persistent terminal sessions',
         endpoints: {
           'GET /health': 'Health check and stats',
