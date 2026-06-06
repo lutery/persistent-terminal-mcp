@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-06
+
+### Added
+
+#### New MCP Tools
+- **`wait_for_pattern`**: Wait for a regex pattern to appear in terminal output, with timeout, snapshot, and capture group support
+- **`wait_for_result`**: Wait for `<task_result>` XML block in terminal output and parse it with structured result (PASS/FAIL/ERROR)
+- **`get_terminal_status`**: Get structured terminal status snapshot with semantic state detection (running/waiting_input/completed/error)
+- **`resume_terminal`**: Resume a CLI agent session by creating a new PTY and running `claude --resume <sessionId>`
+
+#### Enhanced MCP Tools
+- **`create_terminal`**: Now accepts `initCommands`, `readyPattern`, `readyTimeoutMs`, `initFailurePattern`, `statusFile` for initialization workflows
+- **`read_terminal`**: New modes `content_only` (filtered output) and `last_response` (extract last AI response), plus `adapter` parameter (generic/claude/codex)
+
+#### New Modules
+- **`OutputFilter`** (`src/output-filter.ts`): Conservative noise removal for TUI output - removes spinners, progress bars, diff borders while preserving critical lines (errors, file paths, test results)
+- **`ResultParser`** (`src/result-parser.ts`): XML `<task_result>` block detection and parsing with `fast-xml-parser` (entities/DTD disabled for security)
+- **`StatusProvider`** (`src/status-provider.ts`): JSON status file reader with zod validation, non-fatal error handling
+
+#### REST API Extensions
+- `GET /terminals/:id/status` - Structured status snapshot
+- `POST /terminals/:id/wait-pattern` - Wait for pattern
+- `POST /terminals/:id/wait-result` - Wait for XML result
+- `POST /terminals/:id/resume` - Resume terminal session
+- `POST /terminals` now accepts init options
+- `GET /terminals/:id/output` now supports `adapter` parameter
+
+#### Web UI Extensions
+- Terminal list shows semantic status badges and relative last activity time
+- Terminal detail page: status panel with refresh, output filter toggle (full/content_only/last_response), wait-pattern and wait-result operations, resume operation
+- Create terminal modal supports init options
+- WebSocket events: `pattern_matched`, `status_changed`
+
+#### Core Methods
+- `TerminalManager.waitForPattern()` - Poll terminal output for regex matches with incremental cursor scanning
+- `TerminalManager.getTerminalStatus()` - Structured status with semantic analysis and confidence levels
+- `TerminalManager.createTerminalWithInit()` - Sequential init commands + ready pattern wait
+- `TerminalManager.resumeTerminal()` - Create new PTY with resume command
+
+### Changed
+- `TerminalSession` now stores `exitCode` and `exitSignal` for terminated process inspection
+- Version bumped from 1.1.3 to 1.2.0 (MINOR - backward-compatible feature additions)
+- Added `fast-xml-parser` dependency for XML result parsing
+
+### Security
+- XML parsing disables external entities, DTD, and network resolution
+- Status file reading is non-fatal (never crashes on invalid/missing files)
+
 ## [1.0.9] - 2026-02-11
 
 ### Improved

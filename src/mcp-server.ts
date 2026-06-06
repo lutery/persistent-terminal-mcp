@@ -20,7 +20,9 @@ import {
   TerminalStatsInput,
   TerminalStatsResult,
   TerminalCreateOptions,
-  TerminalReadOptions
+  TerminalReadOptions,
+  TerminalStatusOptions,
+  InitResult
 } from './types.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -374,14 +376,56 @@ Fix tool: OpenAI Codex
       {
         shell: z.string().optional().describe('Shell to use (default: system default)'),
         cwd: z.string().optional().describe('Working directory (default: current directory)'),
-        env: z.record(z.string()).optional().describe('Environment variables')
+        env: z.record(z.string()).optional().describe('Environment variables'),
+        initCommands: z.array(z.string()).optional().describe('Commands to execute after terminal creation'),
+        readyPattern: z.string().optional().describe('Regex pattern indicating terminal is ready'),
+        readyTimeoutMs: z.number().optional().describe('Timeout for ready pattern in ms (default: 30000)'),
+        initFailurePattern: z.string().optional().describe('Pattern indicating init failure'),
+        statusFile: z.string().optional().describe('Path to cooperative status JSON file')
       },
       {
         title: 'Create Terminal',
         readOnlyHint: false
       },
-      async ({ shell, cwd, env }): Promise<CallToolResult> => {
+      async ({ shell, cwd, env, initCommands, readyPattern, readyTimeoutMs, initFailurePattern, statusFile }): Promise<CallToolResult> => {
         try {
+          // If any init options provided, use createTerminalWithInit
+          if (initCommands || readyPattern || initFailurePattern || statusFile) {
+            const result = await this.terminalManager.createTerminalWithInit({
+              shell: shell || undefined,
+              cwd: cwd || undefined,
+              env: env || undefined,
+              initCommands,
+              readyPattern,
+              readyTimeoutMs,
+              initFailurePattern,
+              statusFile
+            });
+
+            const session = this.terminalManager.getTerminalInfo(result.terminalId);
+            if (!session) throw new Error('Failed to retrieve session info');
+
+            const initInfo = result.init.status !== 'not_requested'
+              ? `\nInit Status: ${result.init.status}\nInit Duration: ${result.init.elapsedMs}ms${result.init.matched ? '\nReady Match: ' + result.init.matched : ''}${result.init.outputPreview ? '\nOutput Preview: ' + result.init.outputPreview : ''}`
+              : '';
+
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `Terminal created with init!\n\nTerminal ID: ${result.terminalId}\nPID: ${session.pid}\nShell: ${session.shell}\nWorking Directory: ${session.cwd}\nStatus: ${session.status}${initInfo}`
+              }],
+              structuredContent: {
+                terminalId: result.terminalId,
+                pid: session.pid,
+                shell: session.shell,
+                cwd: session.cwd,
+                status: session.status,
+                init: result.init
+              } as Record<string, unknown>
+            } as CallToolResult;
+          }
+
+          // No init - use the existing basic flow
           return await this.createTerminalResponse(
             {
               shell: shell || undefined,
@@ -497,19 +541,20 @@ Fix tool: OpenAI Codex
         terminalId: z.string().describe('Terminal session ID'),
         since: z.number().optional().describe('Line number to start reading from (default: 0)'),
         maxLines: z.number().optional().describe('Maximum number of lines to read (default: 1000)'),
-        mode: z.enum(['full', 'head', 'tail', 'head-tail']).optional().describe('Reading mode: full, head, tail, head-tail. For recent chat turns, prefer tail. For screen-refresh TUI recovery, use head-tail.'),
+        mode: z.enum(['full', 'head', 'tail', 'head-tail', 'content_only', 'last_response']).optional().describe('Reading mode: full, head, tail, head-tail, content_only, last_response. content_only filters spinner/progress/border noise. last_response extracts the last AI response using adapter heuristics. For recent chat turns, prefer tail. For screen-refresh TUI recovery, use head-tail.'),
         headLines: z.number().optional().describe('Number of lines to show from the beginning when using head or head-tail mode (default: 50)'),
         tailLines: z.number().optional().describe('Number of lines from the end in tail/head-tail mode. For chat checks, 10-30 is a good starting range.'),
         stripSpinner: z.boolean().optional().describe('Whether to strip spinner/animation frames (uses global setting if not specified)'),
         raw: z.boolean().optional().describe('Read raw PTY stream. Strongly recommended for Codex/vim-like TUIs to avoid missing lines caused by cursor redraw.'),
         cleanAnsi: z.boolean().optional().describe('When raw=true, sanitize ANSI/control sequences into readable text. Default: true'),
-        maxChars: z.number().optional().describe('Maximum characters returned in this tool response (default: 12000, hard cap for context safety)')
+        maxChars: z.number().optional().describe('Maximum characters returned in this tool response (default: 12000, hard cap for context safety)'),
+        adapter: z.enum(['generic', 'claude', 'codex']).optional().describe('Adapter for last_response mode (default: generic)')
       },
       {
         title: 'Read Terminal Output',
         readOnlyHint: true
       },
-      async ({ terminalId, since, maxLines, mode, headLines, tailLines, stripSpinner, raw, cleanAnsi, maxChars }): Promise<CallToolResult> => {
+      async ({ terminalId, since, maxLines, mode, headLines, tailLines, stripSpinner, raw, cleanAnsi, maxChars, adapter }): Promise<CallToolResult> => {
         try {
           const useRawRead = raw === true;
           const readOptions: TerminalReadOptions = {
@@ -520,7 +565,8 @@ Fix tool: OpenAI Codex
             headLines: headLines || undefined,
             tailLines: tailLines || undefined,
             stripSpinner: stripSpinner,
-            raw: useRawRead
+            raw: useRawRead,
+            adapter: adapter || undefined
           };
 
           const result = await this.terminalManager.readFromTerminal({
@@ -537,8 +583,8 @@ Fix tool: OpenAI Codex
             headLines?: number;
             tailLines?: number;
           } = {};
-          if (mode !== undefined) {
-            rawModeOptions.mode = mode;
+          if (mode !== undefined && mode !== 'content_only' && mode !== 'last_response') {
+            rawModeOptions.mode = mode as 'full' | 'head-tail' | 'head' | 'tail';
           }
           if (headLines !== undefined) {
             rawModeOptions.headLines = headLines;
@@ -887,6 +933,107 @@ Fix tool: OpenAI Codex
       }
     );
 
+    // Get Terminal Status Tool
+    this.server.tool(
+      'get_terminal_status',
+      'Get a structured status snapshot of a terminal session including process state, semantic status, command info, and buffer cursors.',
+      {
+        terminalId: z.string().describe('Terminal session ID'),
+        includeOutputPreview: z.boolean().optional().describe('Include bounded output preview (default: false)')
+      },
+      {
+        title: 'Get Terminal Status',
+        readOnlyHint: true
+      },
+      async ({ terminalId, includeOutputPreview }) => {
+        try {
+          const result = await this.terminalManager.getTerminalStatus(terminalId, { includeOutputPreview });
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify(result, null, 2)
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `Error getting terminal status: ${error.message}`
+            }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Wait for Pattern Tool
+    this.server.tool(
+      'wait_for_pattern',
+      'Wait for a specific pattern to appear in terminal output. Returns when pattern matches or timeout expires. Useful for detecting command completion, prompt appearance, or structured output.',
+      {
+        terminalId: z.string().describe('Terminal session ID'),
+        pattern: z.string().describe('Regular expression pattern to wait for'),
+        timeoutMs: z.number().optional().describe('Maximum wait time in milliseconds (default: 30000)'),
+        pollIntervalMs: z.number().optional().describe('Poll interval in milliseconds (default: 250)'),
+        source: z.enum(['parsed', 'raw', 'cleanRaw']).optional().describe('Output source to scan (default: parsed)'),
+        since: z.number().optional().describe('Start reading from this sequence number'),
+        snapshotLines: z.number().optional().describe('Lines to include in timeout snapshot (default: 80)'),
+        maxChars: z.number().optional().describe('Maximum characters in response (default: 12000)')
+      },
+      {
+        title: 'Wait for Pattern',
+        readOnlyHint: true
+      },
+      async ({ terminalId, pattern, timeoutMs, pollIntervalMs, source, since, snapshotLines, maxChars }) => {
+        try {
+          const result = await this.terminalManager.waitForPattern({
+            terminalId,
+            pattern,
+            timeoutMs: timeoutMs ?? 30000,
+            pollIntervalMs: pollIntervalMs ?? 250,
+            source: source ?? 'parsed',
+            since: since ?? 0,
+            snapshotLines: snapshotLines ?? 80,
+            maxChars: maxChars ?? 12000
+          });
+
+          if (result.matched) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `Pattern matched in ${result.elapsedMs}ms.\nMatch: ${result.match?.text ?? ''}\nCursor: ${result.cursor ?? 0}`
+              }],
+              structuredContent: result as unknown as Record<string, unknown>
+            } as CallToolResult;
+          } else if (result.timedOut) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `Pattern not found within timeout (${result.elapsedMs}ms).\n${result.snapshot ? 'Last output:\n' + result.snapshot : ''}`
+              }],
+              structuredContent: result as unknown as Record<string, unknown>
+            } as CallToolResult;
+          } else {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `Pattern wait ended (process may have exited).\n${result.snapshot ? 'Last output:\n' + result.snapshot : ''}`
+              }],
+              structuredContent: result as unknown as Record<string, unknown>
+            } as CallToolResult;
+          }
+        } catch (error: any) {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `Error waiting for pattern: ${error.message}`
+            }],
+            isError: true
+          };
+        }
+      }
+    );
+
     // Codex Bug Fix Tool
     this.server.tool(
       'fix_bug_with_codex',
@@ -1017,6 +1164,105 @@ The more detailed, the better the fix!`),
         if (cwd) params.cwd = cwd;
         if (timeout) params.timeout = timeout;
         return await this.fixBugWithCodex(params);
+      }
+    );
+
+    // Wait for result tool
+    this.server.tool(
+      'wait_for_result',
+      'Wait for a structured <task_result> XML block in terminal output and parse it. The XML must have a <status> element with value PASS, FAIL, or ERROR.',
+      {
+        terminalId: z.string().describe('Terminal session ID'),
+        timeoutMs: z.number().optional().describe('Maximum wait time in milliseconds (default: 60000)'),
+        since: z.number().optional().describe('Start reading from this sequence number')
+      },
+      { title: 'Wait for Result', readOnlyHint: true },
+      async ({ terminalId, timeoutMs, since }) => {
+        try {
+          const { ResultParser } = await import('./result-parser.js');
+          const parser = new ResultParser();
+
+          const patternResult = await this.terminalManager.waitForPattern({
+            terminalId,
+            pattern: '<task_result>[\\s\\S]*?</task_result>',
+            timeoutMs: timeoutMs ?? 60000,
+            since: since ?? 0
+          });
+
+          if (!patternResult.matched) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `No <task_result> XML block found within timeout (${patternResult.elapsedMs}ms).${patternResult.snapshot ? '\nLast output:\n' + patternResult.snapshot : ''}`
+              }],
+              structuredContent: { matched: false, timedOut: patternResult.timedOut, elapsedMs: patternResult.elapsedMs }
+            } as CallToolResult;
+          }
+
+          const xmlText = patternResult.match?.text ?? '';
+          const parseResult = parser.parseTaskResult(xmlText);
+
+          if (parseResult.parsed) {
+            return {
+              content: [{
+                type: 'text' as const,
+                text: `Task Result: ${parseResult.parsed.status}\n${parseResult.parsed.summary ? 'Summary: ' + parseResult.parsed.summary : ''}${parseResult.parsed.files?.length ? '\nFiles: ' + parseResult.parsed.files.join(', ') : ''}${parseResult.parsed.errors?.length ? '\nErrors: ' + parseResult.parsed.errors.join('; ') : ''}`
+              }],
+              structuredContent: parseResult.parsed as unknown as Record<string, unknown>
+            } as CallToolResult;
+          }
+
+          return {
+            content: [{ type: 'text' as const, text: `Found <task_result> XML but failed to parse: ${parseResult.errors.map(e => e.message).join('; ')}` }],
+            isError: true
+          } as CallToolResult;
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text' as const, text: `Error waiting for result: ${error.message}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Resume terminal tool
+    this.server.tool(
+      'resume_terminal',
+      'Resume a CLI agent session in a new terminal. Creates a new PTY and runs the resume command (e.g., claude --resume <session-id>). This is NOT PTY resurrection - a new process is created.',
+      {
+        sessionId: z.string().describe('Session ID to resume (e.g., Claude session ID)'),
+        cwd: z.string().optional().describe('Working directory for the resumed session'),
+        shell: z.string().optional().describe('Shell to use'),
+        initCommands: z.array(z.string()).optional().describe('Commands to execute before the resume command'),
+        readyPattern: z.string().optional().describe('Pattern indicating session is ready (default: ">")'),
+        readyTimeoutMs: z.number().optional().describe('Timeout for ready pattern in ms (default: 30000)')
+      },
+      { title: 'Resume Terminal', readOnlyHint: false },
+      async ({ sessionId, cwd, shell, initCommands, readyPattern, readyTimeoutMs }) => {
+        try {
+          const resumeOpts: import('./types.js').ResumeTerminalOptions = { sessionId };
+          if (cwd) resumeOpts.cwd = cwd;
+          if (shell) resumeOpts.shell = shell;
+          if (initCommands) resumeOpts.initCommands = initCommands;
+          if (readyPattern) resumeOpts.readyPattern = readyPattern;
+          if (readyTimeoutMs) resumeOpts.readyTimeoutMs = readyTimeoutMs;
+          const result = await this.terminalManager.resumeTerminal(resumeOpts);
+          const session = this.terminalManager.getTerminalInfo(result.terminalId);
+          if (!session) throw new Error('Failed to retrieve session info');
+
+          return {
+            content: [{
+              type: 'text' as const,
+              text: `Terminal resumed!\n\nTerminal ID: ${result.terminalId}\nPID: ${session.pid}\nShell: ${session.shell}\nInit Status: ${result.init.status}\nInit Duration: ${result.init.elapsedMs}ms`
+            }],
+            structuredContent: { terminalId: result.terminalId, pid: session.pid, shell: session.shell, cwd: session.cwd, init: result.init }
+          } as CallToolResult;
+        } catch (error: any) {
+          return {
+            content: [{ type: 'text' as const, text: `Error resuming terminal: ${error.message}` }],
+            isError: true
+          };
+        }
       }
     );
   }

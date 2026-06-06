@@ -9,9 +9,9 @@
 <body>
   <div class="container">
     <header class="header">
-      <h1>🖥️ Terminal Manager</h1>
+      <h1>Terminal Manager</h1>
       <div class="header-actions">
-        <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
+        <button id="refresh-btn" class="btn btn-secondary">Refresh</button>
         <button id="create-terminal-btn" class="btn btn-primary">+ New Terminal</button>
       </div>
     </header>
@@ -49,6 +49,18 @@
           <label for="cwd">Working Directory (optional):</label>
           <input type="text" id="cwd" placeholder="e.g., /home/user">
         </div>
+        <div class="form-group">
+          <label for="init-commands">Init Commands (one per line, optional):</label>
+          <textarea id="init-commands" rows="3" placeholder="e.g.,&#10;cd /project&#10;npm install"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ready-pattern">Ready Pattern (regex, optional):</label>
+          <input type="text" id="ready-pattern" placeholder="e.g., \\$|ready>">
+        </div>
+        <div class="form-group">
+          <label for="ready-timeout">Ready Timeout (ms, optional):</label>
+          <input type="number" id="ready-timeout" placeholder="30000" min="1000">
+        </div>
         <div class="form-actions">
           <button type="button" id="cancel-btn" class="btn btn-secondary">Cancel</button>
           <button type="submit" class="btn btn-primary">Create</button>
@@ -57,7 +69,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
 

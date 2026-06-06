@@ -381,3 +381,254 @@ body {
   padding: 40px;
   color: #888;
 }
+
+/* Notification */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #4ec9b0;
+  color: #000;
+  padding: 15px 20px;
+  border-radius: 4px;
+  font-weight: 500;
+  z-index: 10000;
+}
+
+/* Semantic Status Badges */
+.semantic-unknown {
+  background: #555;
+  color: #ccc;
+}
+
+.semantic-running {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.semantic-waiting-input {
+  background: #4ec9b0;
+  color: #000;
+}
+
+.semantic-completed {
+  background: #4ec9b0;
+  color: #000;
+}
+
+.semantic-error {
+  background: #f14c4c;
+  color: #fff;
+}
+
+.semantic-active {
+  background: #4ec9b0;
+  color: #000;
+}
+
+.semantic-terminated {
+  background: #f14c4c;
+  color: #fff;
+}
+
+.semantic-missing {
+  background: #f14c4c;
+  color: #fff;
+}
+
+/* Panels */
+.panel {
+  background: #252526;
+  border: 1px solid #3c3c3c;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3c3c3c;
+  background: #2d2d30;
+}
+
+.panel-header h3 {
+  font-size: 14px;
+  color: #fff;
+  margin: 0;
+}
+
+.panel-body {
+  padding: 12px 16px;
+}
+
+/* Status Grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.status-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.status-label {
+  color: #888;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.status-value {
+  color: #d4d4d4;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Filter Row */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-row label {
+  color: #d4d4d4;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.filter-row select {
+  padding: 6px 10px;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-size: 13px;
+}
+
+.filter-row select:focus {
+  outline: none;
+  border-color: #0e639c;
+}
+
+/* Filtered Output */
+.filtered-output {
+  margin-top: 10px;
+  padding: 12px;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Wait Sections */
+.wait-section {
+  margin-bottom: 12px;
+}
+
+.wait-section:last-child {
+  margin-bottom: 0;
+}
+
+.wait-section h4 {
+  font-size: 13px;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+.wait-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wait-row input[type="text"],
+.wait-row input[type="number"] {
+  padding: 8px 10px;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-size: 13px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.wait-row input[type="text"]:focus,
+.wait-row input[type="number"]:focus {
+  outline: none;
+  border-color: #0e639c;
+}
+
+.input-small {
+  max-width: 130px;
+}
+
+/* Wait Results */
+.wait-result {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  min-height: 0;
+  transition: all 0.2s;
+}
+
+.wait-pending {
+  background: #2d2d30;
+  color: #888;
+  border: 1px solid #3c3c3c;
+}
+
+.wait-success {
+  background: #1a3a1a;
+  color: #4ec9b0;
+  border: 1px solid #4ec9b050;
+}
+
+.wait-timeout {
+  background: #3a3a1a;
+  color: #dcdcaa;
+  border: 1px solid #dcdcaa50;
+}
+
+.wait-error {
+  background: #3a1a1a;
+  color: #f14c4c;
+  border: 1px solid #f14c4c50;
+}
+
+/* Form Group textarea */
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  resize: vertical;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #0e639c;
+}

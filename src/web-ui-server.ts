@@ -4,6 +4,7 @@ import { createServer, Server as HttpServer } from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TerminalManager } from './terminal-manager.js';
+import { ResultParser } from './result-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,7 +118,40 @@ export class WebUIServer {
     // 创建终端
     this.app.post('/api/terminals', async (req: Request, res: Response) => {
       try {
-        const { shell, cwd, env } = req.body;
+        const { shell, cwd, env, initCommands, readyPattern, readyTimeoutMs, initFailurePattern, statusFile } = req.body;
+
+        // If init options are provided, use createTerminalWithInit
+        if (initCommands && initCommands.length > 0) {
+          const result = await this.terminalManager.createTerminalWithInit({
+            shell,
+            cwd,
+            env,
+            initCommands,
+            readyPattern,
+            readyTimeoutMs,
+            initFailurePattern,
+            statusFile
+          });
+
+          const session = this.terminalManager.getTerminalInfo(result.terminalId);
+
+          res.status(201).json({
+            terminalId: result.terminalId,
+            status: session?.status,
+            pid: session?.pid,
+            shell: session?.shell,
+            cwd: session?.cwd,
+            init: result.init
+          });
+
+          // 广播新终端创建事件
+          this.broadcast({
+            type: 'terminal_created',
+            terminalId: result.terminalId
+          });
+          return;
+        }
+
         const terminalId = await this.terminalManager.createTerminal({
           shell,
           cwd,
@@ -125,7 +159,7 @@ export class WebUIServer {
         });
 
         const session = this.terminalManager.getTerminalInfo(terminalId);
-        
+
         res.status(201).json({
           terminalId,
           status: session?.status,
@@ -155,15 +189,21 @@ export class WebUIServer {
           res.status(400).json({ error: 'Terminal ID is required' });
           return;
         }
-        const { since, maxLines, mode, raw } = req.query;
+        const { since, maxLines, mode, raw, adapter } = req.query;
 
-        const result = await this.terminalManager.readFromTerminal({
+        const readOptions: any = {
           terminalId: id,
           since: since ? parseInt(since as string) : undefined,
           maxLines: maxLines ? parseInt(maxLines as string) : undefined,
           mode: mode as any,
           raw: raw === 'true' || raw === '1'
-        });
+        };
+
+        if (adapter && typeof adapter === 'string') {
+          readOptions.adapter = adapter as 'generic' | 'claude' | 'codex';
+        }
+
+        const result = await this.terminalManager.readFromTerminal(readOptions);
 
         res.json(result);
       } catch (error) {
@@ -244,6 +284,123 @@ export class WebUIServer {
         });
       }
     });
+
+    // 获取终端结构化状态
+    this.app.get('/api/terminals/:id/status', async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        if (!id) {
+          res.status(400).json({ error: 'Terminal ID is required' });
+          return;
+        }
+        const result = await this.terminalManager.getTerminalStatus(id, { includeOutputPreview: true });
+        res.json(result);
+      } catch (error) {
+        res.status(400).json({
+          error: 'Failed to get terminal status',
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    // 等待模式匹配
+    this.app.post('/api/terminals/:id/wait-pattern', async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        if (!id) {
+          res.status(400).json({ error: 'Terminal ID is required' });
+          return;
+        }
+        const { pattern, timeoutMs, pollIntervalMs, source, since } = req.body;
+        if (!pattern) {
+          res.status(400).json({ error: 'pattern is required' });
+          return;
+        }
+        const result = await this.terminalManager.waitForPattern({
+          terminalId: id,
+          pattern,
+          timeoutMs,
+          pollIntervalMs,
+          source,
+          since
+        });
+        res.json(result);
+      } catch (error) {
+        res.status(400).json({
+          error: 'Failed to wait for pattern',
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    // 等待 XML 结果
+    this.app.post('/api/terminals/:id/wait-result', async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        if (!id) {
+          res.status(400).json({ error: 'Terminal ID is required' });
+          return;
+        }
+        const { timeoutMs, pollIntervalMs, since } = req.body;
+
+        // Wait for task_result XML pattern
+        const patternResult = await this.terminalManager.waitForPattern({
+          terminalId: id,
+          pattern: '<task_result>[\\s\\S]*?</task_result>',
+          timeoutMs: timeoutMs ?? 60000,
+          pollIntervalMs,
+          since
+        });
+
+        // Parse the result if matched
+        let parsedResult = null;
+        if (patternResult.matched && patternResult.match?.text) {
+          const resultParser = new ResultParser();
+          parsedResult = resultParser.parseTaskResult(patternResult.match.text);
+        }
+
+        res.json({
+          wait: patternResult,
+          parsed: parsedResult
+        });
+      } catch (error) {
+        res.status(400).json({
+          error: 'Failed to wait for result',
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    // 恢复终端会话
+    this.app.post('/api/terminals/:id/resume', async (req: Request, res: Response) => {
+      try {
+        const { sessionId, shell, cwd, initCommands, readyPattern, readyTimeoutMs } = req.body;
+        if (!sessionId) {
+          res.status(400).json({ error: 'sessionId is required' });
+          return;
+        }
+        const result = await this.terminalManager.resumeTerminal({
+          sessionId,
+          shell,
+          cwd,
+          initCommands,
+          readyPattern,
+          readyTimeoutMs
+        });
+        res.json(result);
+
+        // 广播新终端创建事件
+        this.broadcast({
+          type: 'terminal_created',
+          terminalId: result.terminalId
+        });
+      } catch (error) {
+        res.status(400).json({
+          error: 'Failed to resume terminal',
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
   }
 
   /**
@@ -288,6 +445,24 @@ export class WebUIServer {
       this.broadcast({
         type: 'exit',
         terminalId
+      });
+    });
+
+    // 监听模式匹配事件
+    this.terminalManager.on('patternMatched', (data: { terminalId: string; pattern: string; match: any }) => {
+      this.broadcast({
+        type: 'pattern_matched',
+        terminalId: data.terminalId,
+        match: data.match
+      });
+    });
+
+    // 监听状态变更事件
+    this.terminalManager.on('statusChanged', (data: { terminalId: string; status: any }) => {
+      this.broadcast({
+        type: 'status_changed',
+        terminalId: data.terminalId,
+        status: data.status
       });
     });
   }

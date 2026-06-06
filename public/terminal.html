@@ -11,7 +11,7 @@
   <div class="terminal-page">
     <header class="terminal-header">
       <div class="terminal-info">
-        <a href="/" class="back-link">← Back to List</a>
+        <a href="/" class="back-link">&larr; Back to List</a>
         <h2 id="terminal-title">Terminal</h2>
         <span id="terminal-status" class="status-badge">Loading...</span>
       </div>
@@ -40,6 +40,103 @@
       </div>
     </div>
 
+    <!-- Status Panel -->
+    <div class="panel" id="status-panel">
+      <div class="panel-header">
+        <h3>Status</h3>
+        <button id="refresh-status-btn" class="btn btn-secondary btn-small">Refresh Status</button>
+      </div>
+      <div class="panel-body">
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="status-label">Process:</span>
+            <span id="status-process" class="status-value">-</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Semantic:</span>
+            <span id="status-semantic" class="status-value">-</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Last Activity:</span>
+            <span id="status-last-activity" class="status-value">-</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Pending Command:</span>
+            <span id="status-pending" class="status-value">-</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Prompt Visible:</span>
+            <span id="status-prompt" class="status-value">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Filter Panel -->
+    <div class="panel" id="output-filter-panel">
+      <div class="panel-header">
+        <h3>Output Filter</h3>
+      </div>
+      <div class="panel-body">
+        <div class="filter-row">
+          <label for="output-mode">Mode:</label>
+          <select id="output-mode">
+            <option value="full">Full</option>
+            <option value="content_only">Content Only</option>
+            <option value="last_response">Last Response</option>
+          </select>
+          <label for="output-adapter" id="adapter-label" style="display:none;">Adapter:</label>
+          <select id="output-adapter" style="display:none;">
+            <option value="generic">Generic</option>
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
+          <button id="apply-filter-btn" class="btn btn-primary btn-small">Apply</button>
+        </div>
+        <pre id="filtered-output" class="filtered-output" style="display:none;"></pre>
+      </div>
+    </div>
+
+    <!-- Wait Operations Panel -->
+    <div class="panel" id="wait-panel">
+      <div class="panel-header">
+        <h3>Wait Operations</h3>
+      </div>
+      <div class="panel-body">
+        <div class="wait-section">
+          <h4>Wait for Pattern</h4>
+          <div class="wait-row">
+            <input type="text" id="wait-pattern-input" placeholder="Regex pattern, e.g., \\$|done">
+            <input type="number" id="wait-pattern-timeout" placeholder="Timeout (ms)" value="30000" min="1000" class="input-small">
+            <button id="wait-pattern-btn" class="btn btn-primary btn-small">Wait</button>
+          </div>
+          <div id="wait-pattern-result" class="wait-result"></div>
+        </div>
+        <div class="wait-section">
+          <h4>Wait for Result (XML)</h4>
+          <div class="wait-row">
+            <input type="number" id="wait-result-timeout" placeholder="Timeout (ms)" value="60000" min="1000" class="input-small">
+            <button id="wait-result-btn" class="btn btn-primary btn-small">Wait</button>
+          </div>
+          <div id="wait-result-result" class="wait-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resume Operation -->
+    <div class="panel" id="resume-panel">
+      <div class="panel-header">
+        <h3>Resume Session</h3>
+      </div>
+      <div class="panel-body">
+        <div class="wait-row">
+          <input type="text" id="resume-session-id" placeholder="Session ID to resume">
+          <button id="resume-btn" class="btn btn-primary btn-small">Resume</button>
+        </div>
+        <div id="resume-result" class="wait-result"></div>
+      </div>
+    </div>
+
     <div id="terminal-container"></div>
 
     <div class="input-container">
@@ -50,7 +147,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-  <script src="/terminal.js?v=3"></script>
+  <script src="/terminal.js?v=4"></script>
 </body>
 </html>
 

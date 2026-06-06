@@ -4,6 +4,21 @@ Last updated: 2026-06-06
 
 Latest decision update: Q-001 through Q-005 have been confirmed and applied. Additional confirmations cover real Claude Code CLI plus mock acceptance, Web UI wait actions, JSON status files, XML parser dependency, Claude Code resume convention, and content filtering correctness over compression.
 
+## Current Version: 1.2.0
+
+### v1.2.0 New Features (2026-06-06)
+- `wait_for_pattern` MCP tool: regex pattern matching with timeout and capture groups
+- `wait_for_result` MCP tool: XML `<task_result>` block detection and parsing
+- `get_terminal_status` MCP tool: structured status with semantic state detection
+- `resume_terminal` MCP tool: resume CLI agent sessions in new PTY
+- `create_terminal` enhanced: init commands, ready pattern, timeout, failure detection
+- `read_terminal` enhanced: `content_only` mode (filtered), `last_response` mode (extract AI response)
+- `OutputFilter` module: conservative TUI noise removal
+- `ResultParser` module: secure XML parsing with `fast-xml-parser`
+- `StatusProvider` module: JSON status file reader
+- REST API: 4 new endpoints (status, wait-pattern, wait-result, resume)
+- Web UI: status panel, filter toggle, wait operations, resume, init support
+
 ## Iteration 1: Terminal Automation Improvements
 
 ### Source Requirements

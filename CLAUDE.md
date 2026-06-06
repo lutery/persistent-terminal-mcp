@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 3. 执行 `npm install -g .`（如需全局安装）
 4. 提交代码并注明版本变更
 
-当前版本：**1.1.0**
+当前版本：**1.2.0**
 
 ## Project Overview
 
@@ -52,21 +52,28 @@ npm run example:webui        # Web UI demo
 
 ### Core Components
 
-- **PersistentTerminalMcpServer** (`src/mcp-server.ts`) - MCP protocol server, registers 10 tools for terminal management
+- **PersistentTerminalMcpServer** (`src/mcp-server.ts`) - MCP protocol server, registers 14 tools for terminal management
 - **TerminalManager** (`src/terminal-manager.ts`) - Creates/manages PTY processes via `node-pty`, session tracking with UUIDs
 - **OutputBuffer** (`src/output-buffer.ts`) - Circular buffer (default 10,000 lines) with spinner detection and compression
+- **OutputFilter** (`src/output-filter.ts`) - Conservative TUI noise removal, last_response extraction (v1.2.0)
+- **ResultParser** (`src/result-parser.ts`) - XML `<task_result>` block detection and parsing (v1.2.0)
+- **StatusProvider** (`src/status-provider.ts`) - JSON status file reader with validation (v1.2.0)
 - **WebUIServer** (`src/web-ui-server.ts`) - Express + WebSocket for real-time terminal UI with xterm.js
 
 ### MCP Tools Provided
 
 | Tool | Purpose |
 |------|---------|
-| `create_terminal` / `create_terminal_basic` | Create PTY session |
+| `create_terminal` / `create_terminal_basic` | Create PTY session (init commands + ready wait) |
 | `write_terminal` | Send input to terminal |
-| `read_terminal` | Read output (modes: full, head, tail, head-tail; raw mode for TUI apps) |
+| `read_terminal` | Read output (modes: full, head, tail, head-tail, content_only, last_response; raw mode for TUI apps) |
 | `wait_for_output` | Wait for stable output |
+| `wait_for_pattern` | Wait for regex pattern match in output (v1.2.0) |
+| `wait_for_result` | Wait for `<task_result>` XML block and parse it (v1.2.0) |
+| `get_terminal_status` | Structured status snapshot with semantic state (v1.2.0) |
 | `get_terminal_stats` / `list_terminals` | Session inspection |
 | `kill_terminal` | Terminate session |
+| `resume_terminal` | Resume CLI agent session in new PTY (v1.2.0) |
 | `open_terminal_ui` | Launch web management UI |
 | `fix_bug_with_codex` | Codex CLI integration for automated bug fixing |
 

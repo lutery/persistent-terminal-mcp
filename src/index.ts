@@ -10,6 +10,9 @@ export { TerminalManager } from './terminal-manager.js';
 export { WebUIManager } from './web-ui-manager.js';
 export { WebUIServer } from './web-ui-server.js';
 export { RestApiServer } from './rest-api.js';
+export { ResultParser } from './result-parser.js';
+export { StatusProvider } from './status-provider.js';
+export { OutputFilter } from './output-filter.js';
 export type {
   TerminalManagerConfig,
   TerminalReadOptions,
@@ -34,7 +37,20 @@ export type {
   CreateTerminalInput,
   CreateTerminalResult,
   WriteTerminalInput,
-  ListTerminalsResult
+  ListTerminalsResult,
+  // v1.2.0 new types
+  InitOptions,
+  InitResult,
+  PatternWaitOptions,
+  PatternWaitResult,
+  TerminalStatusResult,
+  TerminalStatusOptions,
+  StatusFileData,
+  OutputFilterMetadata,
+  ResumeTerminalOptions,
+  ParsedTaskResult,
+  ParseError,
+  ResultParseOutput
 } from './types.js';
 
 /**
