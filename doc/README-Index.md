@@ -2,9 +2,9 @@
 
 Last updated: 2026-06-07
 
-Latest decision update: Third-round review (v1.2.2) completed. Two P1 issues fixed: test false-green fully cleaned, v1.2.2 real CLI driver report added.
+Latest decision update: Fourth-round review (v1.2.4) completed and did not pass. Remaining issues: cross-file Jest silent-return tests, package-lock version drift, and tracked-doc absolute paths.
 
-## Current Version: 1.2.4
+## Current Version: 1.2.5
 
 ### v1.2.0 New Features (2026-06-06)
 - `wait_for_pattern` MCP tool: regex pattern matching with timeout and capture groups
@@ -45,6 +45,7 @@ Latest decision update: Third-round review (v1.2.2) completed. Two P1 issues fix
 - [v1.2.0 real driver gap analysis](./第一次迭代/review/2026-06-06-v1.2.0-real-driver-gap-analysis.md)
 - [v1.2.1 remediation second-round code review](./第一次迭代/review/2026-06-06-v1.2.1-remediation-code-review.md)
 - [v1.2.2 third-round code review](./第一次迭代/review/2026-06-07-v1.2.2-third-round-code-review.md)
+- [v1.2.4 fourth-round code review](./第一次迭代/review/2026-06-07-v1.2.4-fourth-round-code-review.md)
 
 ### Remediation (v1.2.1)
 

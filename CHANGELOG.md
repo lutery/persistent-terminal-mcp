@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-06-07
+
+### Review
+
+- Added fourth-round v1.2.4 remediation code review report.
+- Updated documentation index with the latest review artifact.
+- Version bumped for documentation-only review changes, following repository versioning rules.
+
 ## [1.2.4] - 2026-06-07
 
 ### Fixed
