@@ -17,7 +17,7 @@ export class PersistentTerminalMcpServer {
         // 创建 MCP 服务器
         this.server = new McpServer({
             name: 'persistent-terminal-server',
-            version: '1.2.2',
+            version: '1.2.4',
             description: 'MCP server for managing persistent terminal sessions',
             icons: [
                 {

@@ -58,12 +58,12 @@ describe('TerminalManager', () => {
     let terminalId: string;
 
     beforeEach(async () => {
-      if (IS_WINDOWS) return;
-      terminalId = await terminalManager.createTerminal();
+      if (!IS_WINDOWS) {
+        terminalId = await terminalManager.createTerminal();
+      }
     });
 
-    test('should write to terminal', async () => {
-      if (IS_WINDOWS) return;
+    ptyTest('should write to terminal', async () => {
       await expect(
         terminalManager.writeToTerminal({
           terminalId,
@@ -73,7 +73,6 @@ describe('TerminalManager', () => {
     });
 
     test('should support raw input without auto newline', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'fake-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -103,7 +102,6 @@ describe('TerminalManager', () => {
     });
 
     test('should avoid auto newline for control characters by default', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'control-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -132,7 +130,6 @@ describe('TerminalManager', () => {
     });
 
     test('should auto append newline for printable text by default', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'printable-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -161,7 +158,6 @@ describe('TerminalManager', () => {
     });
 
     test('should send carriage return when only newline requested', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'enter-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -191,7 +187,6 @@ describe('TerminalManager', () => {
     });
 
     test('should send carriage return for empty input by default', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'empty-default-enter-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -220,7 +215,6 @@ describe('TerminalManager', () => {
     });
 
     test('should allow sendEnter to force carriage return even without appendNewline', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'force-enter-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -251,7 +245,6 @@ describe('TerminalManager', () => {
     });
 
     test('should normalize explicit newline input to carriage return', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'normalize-terminal';
       const fakeWrite = jest.fn();
       const fakeSession = {
@@ -301,8 +294,7 @@ describe('TerminalManager', () => {
       expect(manager.terminalQueryRemainders.has(terminalId)).toBe(false);
     });
 
-    test('should read from terminal', async () => {
-      if (IS_WINDOWS) return;
+    ptyTest('should read from terminal', async () => {
       // Send a command
       await terminalManager.writeToTerminal({
         terminalId,
@@ -323,8 +315,7 @@ describe('TerminalManager', () => {
       expect(typeof result.status?.isRunning).toBe('boolean');
     });
 
-    test('should preserve raw terminal chunks for replay', async () => {
-      if (IS_WINDOWS) return;
+    ptyTest('should preserve raw terminal chunks for replay', async () => {
       await terminalManager.writeToTerminal({
         terminalId,
         input: "echo 'RAW-REPLAY-TEST'"
@@ -341,8 +332,7 @@ describe('TerminalManager', () => {
       expect(raw.output.length).toBeGreaterThanOrEqual(parsed.output.length);
     });
 
-    test('should list terminals', async () => {
-      if (IS_WINDOWS) return;
+    ptyTest('should list terminals', async () => {
       const result = await terminalManager.listTerminals();
       
       expect(result.terminals).toBeDefined();
@@ -354,8 +344,7 @@ describe('TerminalManager', () => {
       expect(terminal?.status).toBe('active');
     });
 
-    test('should kill terminal', async () => {
-      if (IS_WINDOWS) return;
+    ptyTest('should kill terminal', async () => {
       await terminalManager.killTerminal(terminalId);
       
       // Wait a bit for termination
@@ -367,7 +356,6 @@ describe('TerminalManager', () => {
     });
 
     test('should handle non-existent terminal', async () => {
-      if (IS_WINDOWS) return;
       const fakeId = 'non-existent-id';
       
       await expect(
@@ -491,7 +479,6 @@ describe('TerminalManager', () => {
     });
 
     test('should not include output preview by default', async () => {
-      if (IS_WINDOWS) return;
       // Use internal session setup to avoid Windows PTY kill issues in afterEach
       const fakeId = 'no-preview-terminal';
       const fakeSession = {
@@ -525,7 +512,6 @@ describe('TerminalManager', () => {
     });
 
     test('should throw for non-existent terminal', async () => {
-      if (IS_WINDOWS) return;
       await expect(
         terminalManager.getTerminalStatus('non-existent-id')
       ).rejects.toThrow(/not found/);

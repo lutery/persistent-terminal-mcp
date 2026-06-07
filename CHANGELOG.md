@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-06-07
+
+### Fixed
+
+- **[P1] Rx16**: Complete test false-green remediation — removed all 16 remaining `if (IS_WINDOWS) return;` from `terminal-manager.test.ts`. 10 fake-session/error-path tests now run on Windows (guards removed). 6 PTY-dependent tests converted from silent `return` to `ptyTest()` using `test.skip` for accurate skip counting. No `if (IS_WINDOWS) return;` remains in any test body.
+- **[P1] Rx17**: Added v1.2.2 real CLI driver acceptance report to `doc/第一次迭代/test/` with 5 scenario results (RD-002, RD-004, RD-006, RD-008, RD-009).
+
+### Review
+
+- Third-round v1.2.2 remediation code review found 2 P1 issues (Rx16, Rx17). Both fixed in this release.
+
 ## [1.2.3] - 2026-06-07
 
 ### Review

@@ -2,9 +2,9 @@
 
 Last updated: 2026-06-07
 
-Latest decision update: Q-001 through Q-005 have been confirmed and applied. Additional confirmations cover real Claude Code CLI plus mock acceptance, Web UI wait actions, JSON status files, XML parser dependency, Claude Code resume convention, and content filtering correctness over compression.
+Latest decision update: Third-round review (v1.2.2) completed. Two P1 issues fixed: test false-green fully cleaned, v1.2.2 real CLI driver report added.
 
-## Current Version: 1.2.3
+## Current Version: 1.2.4
 
 ### v1.2.0 New Features (2026-06-06)
 - `wait_for_pattern` MCP tool: regex pattern matching with timeout and capture groups
@@ -54,6 +54,7 @@ Latest decision update: Q-001 through Q-005 have been confirmed and applied. Add
 ### Remediation (v1.2.2)
 
 - [v1.2.2 second-round remediation dev report](./第一次迭代/dev/2026-06-06-v1.2.2-dev-report.md)
+- [v1.2.2 real CLI driver acceptance report](./第一次迭代/test/2026-06-07-v1.2.2-real-cli-driver-report.md)
 
 ## Directory Guide
 
