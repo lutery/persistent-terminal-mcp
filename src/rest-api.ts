@@ -529,7 +529,7 @@ export class RestApiServer {
     this.app.get('/', (req: Request, res: Response) => {
       res.json({
         name: 'Persistent Terminal REST API',
-        version: '1.2.2',
+        version: '1.2.3',
         description: 'REST API for managing persistent terminal sessions',
         endpoints: {
           'GET /health': 'Health check and stats',

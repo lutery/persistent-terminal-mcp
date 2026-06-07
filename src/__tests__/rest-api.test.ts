@@ -57,7 +57,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
     test('should include v1.2.0 endpoints in documentation', async () => {
       const res = await request(baseUrl, 'GET', '/');
       expect(res.status).toBe(200);
-      expect(res.body.version).toBe('1.2.2');
+    expect(res.body.version).toBe('1.2.3');
       expect(res.body.endpoints).toHaveProperty('GET /terminals/:id/status');
       expect(res.body.endpoints).toHaveProperty('POST /terminals/:id/wait-pattern');
       expect(res.body.endpoints).toHaveProperty('POST /terminals/:id/wait-result');
