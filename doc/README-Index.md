@@ -2,9 +2,9 @@
 
 Last updated: 2026-06-07
 
-Latest decision update: Fourth-round review (v1.2.4) remediation completed (v1.2.6). All silent-return tests fixed, REST PTY tests classified, absolute paths sanitized, dev report conclusion corrected.
+Latest decision update: Real CLI driver acceptance (v1.2.7) passed. All v1.2.0 new features verified in real CLI environment. Ready to merge to main.
 
-## Current Version: 1.2.6
+## Current Version: 1.2.7
 
 ### v1.2.0 New Features (2026-06-06)
 - `wait_for_pattern` MCP tool: regex pattern matching with timeout and capture groups
@@ -46,6 +46,7 @@ Latest decision update: Fourth-round review (v1.2.4) remediation completed (v1.2
 - [v1.2.1 remediation second-round code review](./第一次迭代/review/2026-06-06-v1.2.1-remediation-code-review.md)
 - [v1.2.2 third-round code review](./第一次迭代/review/2026-06-07-v1.2.2-third-round-code-review.md)
 - [v1.2.4 fourth-round code review](./第一次迭代/review/2026-06-07-v1.2.4-fourth-round-code-review.md)
+- [v1.2.6 fifth-round code review](./第一次迭代/review/2026-06-07-v1.2.6-fifth-round-code-review.md)
 
 ### Remediation (v1.2.1)
 
@@ -60,6 +61,10 @@ Latest decision update: Fourth-round review (v1.2.4) remediation completed (v1.2
 ### Remediation (v1.2.6)
 
 - [v1.2.6 fourth-round remediation dev report](./第一次迭代/dev/2026-06-07-v1.2.6-dev-report.md)
+
+### Real CLI Driver Acceptance (v1.2.7)
+
+- [v1.2.7 real CLI driver acceptance report](./第一次迭代/test/2026-06-07-v1.2.7-real-cli-driver-report.md)
 
 ## Directory Guide
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-06-07
+
+### Review
+
+- Added fifth-round v1.2.6 code review report with passing verdict.
+- Updated documentation index with the accepted fourth-round remediation status.
+- Version bumped for documentation-only review changes, following repository versioning rules.
+
+### Real CLI Driver Acceptance
+
+- All v1.2.0 new features verified in real CLI environment with Claude Code sub-agent:
+  - create_terminal initCommands + readyPattern: PASS (elapsedMs: 2458)
+  - wait_for_pattern timeout: PASS (timedOut + snapshot returned)
+  - get_terminal_status semanticStatus: PASS (waiting_input correctly detected)
+  - read_terminal content_only: PASS (72 noise lines filtered)
+  - read_terminal last_response: PASS (claude adapter extracted AI response)
+  - resume_terminal: PASS (new PTY + initCommands + session resume)
+  - REST API endpoints: PASS (v1.2.7 version, all endpoint docs)
+  - Web UI status panel: PASS (4 terminals, semantic status badges)
+- Greedy snake mini-game developed by sub-agent and verified via Playwright.
+- Test report: `doc/第一次迭代/test/2026-06-07-v1.2.7-real-cli-driver-report.md`
+
 ## [1.2.6] - 2026-06-07
 
 ### Fixed
