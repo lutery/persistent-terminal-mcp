@@ -1,5 +1,8 @@
 import { PersistentTerminalMcpServer } from '../mcp-server.js';
 
+const IS_WINDOWS = process.platform === 'win32';
+const maybeTest = IS_WINDOWS ? test.skip : test;
+
 describe('PersistentTerminalMcpServer - get_terminal_status tool', () => {
   let server: PersistentTerminalMcpServer;
 
@@ -17,8 +20,7 @@ describe('PersistentTerminalMcpServer - get_terminal_status tool', () => {
     expect(server.getTerminalManager()).toBeDefined();
   });
 
-  test('should return status for an active terminal via terminalManager', async () => {
-    if (process.platform === 'win32') return; // node-pty conpty issues on Windows
+  maybeTest('should return status for an active terminal via terminalManager', async () => {
     const tm = server.getTerminalManager();
     const terminalId = await tm.createTerminal();
 
@@ -38,8 +40,7 @@ describe('PersistentTerminalMcpServer - get_terminal_status tool', () => {
     await tm.killTerminal(terminalId);
   });
 
-  test('should return terminated status after killing terminal', async () => {
-    if (process.platform === 'win32') return; // node-pty conpty issues on Windows
+  maybeTest('should return terminated status after killing terminal', async () => {
     const tm = server.getTerminalManager();
     const terminalId = await tm.createTerminal();
 

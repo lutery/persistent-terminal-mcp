@@ -1,237 +1,179 @@
-﻿# Persistent Terminal MCP — 第三轮审查后整改任务清单
+# Persistent Terminal MCP — 第四轮审查(勘误后)整改任务清单
 
-**生成日期**: 2026-06-07
-**当前版本**: 1.2.4（第三轮整改已完成）
-**审查状态**: 第三轮整改完成，待审查
-
----
-
-## 审查历程
-
-| 轮次 | 审查报告 | 发现数 | 核心问题 |
-|------|---------|--------|---------|
-| 第一轮 | `v1.2.0-code-review.md` | 7 (2 P0, 4 P1, 1 P2) | statusFile未接入、依赖缺失、测试入口、假覆盖 |
-| 第二轮 | `v1.2.1-remediation-code-review.md` | 6 (1 P0, 3 P1, 2 P2) | 命令注入、集成测试失败、假绿、脱敏、版本漂移 |
-| 第三轮 | `v1.2.2-third-round-code-review.md` | 2 (2 P1) | **假绿未清完、验收报告缺失** |
-
-已确认通过（第三轮复核）：P0 命令注入 ✅、集成测试入口 ✅、版本元数据同步 ✅、敏感信息脱敏基本通过 ✅
+**生成日期**: 2026-06-07 13:09
+**当前版本**: 1.2.6（审查者已同步 package.json + lock + mcp-server + rest-api）
+**审查状态**: 第四轮整改完成，待审查
 
 ---
 
-## 第三轮审查发现与代码确认
+## 架构师本轮勘误说明
 
-### [P1] Rx17: 16 处普通 test/beforeEach 内仍用 `if (IS_WINDOWS) return` — ✅确认存在
+我上一轮反馈的 3 个问题，架构师已在审查报告和任务详情中修正：
 
-| 项目 | 详情 |
+| 反馈项 | 原报告 | 勘误后 | 状态 |
+|--------|--------|--------|:--:|
+| 行号引用不存在(152/153/157/160) | 引用了不存在的行 | → 138/139/143/146 | ✅ 已修正 |
+| 行41绝对路径是审查者自己写的 | 列为开发者问题 | → 明确"属于审查产物自身写入" | ✅ 已修正 |
+| rest-api.test.ts 未分类 PTY 测试 | 只列出70行 | → 补充 79/100/112/142/174/200 | ✅ 已补充 |
+
+版本同步：审查者已将全部版本字符串同步到 `1.2.6`（package.json / lock / mcp-server / rest-api）。
+
+---
+
+## 当前剩余问题（逐项代码确认）
+
+### 需要修复 #1: [P1] 3 处 silent return + 6 处 PTY 测试未声明策略
+
+| 来源 | 审查报告（勘误后）§Finding #1, line 26-64 |
+|------|------------------------------------------|
+
+**3 处 silent return（假绿）**:
+| 文件 | 行号 | 代码 | 类型 | 修复方式 |
+|------|------|------|------|---------|
+| `src/__tests__/mcp-server.test.ts` | 21 | `if (process.platform === 'win32') return;` | 真实PTY → 需 `test.skip` | ✅ 改为 maybeTest |
+| `src/__tests__/mcp-server.test.ts` | 42 | `if (process.platform === 'win32') return;` | 真实PTY → 需 `test.skip` | ✅ 改为 maybeTest |
+| `src/__tests__/rest-api.test.ts` | 70 | `if (process.platform === 'win32') return;` | 真实PTY → 需 `test.skip` | ✅ 改为 maybeTest |
+
+**6 处 PTY 依赖无 Windows 策略（rest-api.test.ts）**:
+| 行号 | 操作 | 当前状态 | 修复方式 |
+|------|------|---------|---------|
+| 79 | `POST /terminals` 带 init 选项 | 无守卫 | ✅ 改为 maybeTest |
+| 100 | `POST /terminals` → `GET /status` | 无守卫 | ✅ 改为 maybeTest |
+| 112 | `POST /terminals` → `GET /status?preview` | 无守卫 | ✅ 改为 maybeTest |
+| 142 | `POST /terminals` → `POST /wait-pattern` | 无守卫 | ✅ 改为 maybeTest |
+| 174 | `POST /terminals` → `POST /wait-result` | 无守卫 | ✅ 改为 maybeTest |
+| 200 | `POST /terminals` → `GET /output` | 无守卫 | ✅ 改为 maybeTest |
+
+---
+
+### 需要修复 #2: [P1] 已跟踪文档绝对路径 + 开发报告脱敏结论不成立
+
+| 来源 | 审查报告（勘误后）§Finding #2, line 66-93 |
+|------|------------------------------------------|
+
+**A. `doc/任务详情.md` 中 4 处绝对路径（测试说明部分）**:
+| 行号 | 内容 | 性质 | 修复方式 |
+|------|------|------|---------|
+| 138 | `D:\DevelopmentKit\aiprogram\claude_coding_proxy.ps1` | 用户原始测试指令 | ✅ 替换为 [REDACTED-proxy-script] |
+| 139 | `F:\Projects\OpenSrouce\WebApp\persistent-terminal-mcp\tanchishe` | 用户原始测试指令 | ✅ 替换为 [REDACTED-project-root]/tanchishe |
+| 143 | `D:\DevelopmentKit\aiprogram\claude_coding_proxy.ps1` | 用户原始测试指令 | ✅ 替换为 [REDACTED-proxy-script] |
+| 146 | `F:\Projects\OpenSrouce\WebApp\persistent-terminal-mcp\tanchishe` | 用户原始测试指令 | ✅ 替换为 [REDACTED-project-root]/tanchishe |
+
+**B. 开发报告脱敏结论不成立**:
+| 文件 | 行号 | 内容 | 修复方式 |
+|------|------|------|---------|
+| `doc/第一次迭代/dev/2026-06-06-v1.2.2-dev-report.md` | 73 | 问题描述中引用了路径模式 | ✅ 移除具体数量声明 |
+| | 79 | 生成了不准确结论 | ✅ 修正为准确描述 |
+
+---
+
+### 已确认无需处理
+
+| 项目 | 说明 |
 |------|------|
-| **文件** | `src/__tests__/terminal-manager.test.ts` |
-| **根因** | 第二轮只修复了 `ptyTest()` 包装函数和 statusFile 测试，遗漏了 16 处普通 `test()`/`beforeEach()` 内的 `if (IS_WINDOWS) return` |
-| **影响** | Jest 计为 passed 而非 skipped；开发报告称"无假绿"但实际存在 |
-
-**代码分类分析**（已验证）：
-
-| 行号 | 测试内容 | 是否依赖真实PTY | 处理方式 |
-|------|---------|:---:|------|
-| 61 | `beforeEach` createTerminal | ✅ 是 | 改用 `ptyTest` 包装或 `test.skip` 条件 |
-| 66 | write to terminal (echo) | ✅ 是 | 改用 `ptyTest` 包装或 `test.skip` 条件 |
-| 76 | raw input without auto newline | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 106 | control char no auto newline | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 135 | printable text auto newline | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 164 | CR when newline requested | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 194 | empty input sends enter | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 223 | sendEnter force enter | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 254 | normalize newline to CR | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 305 | read from terminal (echo) | ✅ 是 | 改用 `ptyTest` 包装或 `test.skip` 条件 |
-| 327 | raw terminal chunks replay | ✅ 是 | 改用 `ptyTest` 包装或 `test.skip` 条件 |
-| 345 | list terminals | ✅ 是 | 改用 `ptyTest` 包装或 `test.skip` 条件 |
-| 358 | kill terminal | ✅ 是 | 改用 `ptyTest` 包装或 `test.skip` 条件 |
-| 370 | non-existent terminal error | ❌ 否(error path) | **删除 `if (IS_WINDOWS) return`** |
-| 494 | output preview default(off) | ❌ 否(fake session) | **删除 `if (IS_WINDOWS) return`** |
-| 528 | non-existent terminal status | ❌ 否(error path) | **删除 `if (IS_WINDOWS) return`** |
-
-**执行方案**:
-1. **6 个真实PTY测试**（行61/66/305/327/345/358）：由于 `beforeEach`（行61）创建真实PTY是整个 `describe('Terminal Operations')` 的前提，这些测试无法简单地拆分。方案：将整个 `describe('Terminal Operations')` 块在 Windows 上用 `describe.skip` 跳过；将其中不依赖PTY的7个fake session测试移到独立 `describe` 块
-2. **10 个不依赖PTY测试**（行76/106/135/164/194/223/254/370/494/528）：直接删除 `if (IS_WINDOWS) return`，让它们在所有平台执行
+| P2 package-lock 版本漂移 | 审查者已同步到 1.2.6 |
+| 所有版本字符串不一致 | 审查者已同步到 1.2.6 |
+| 行 41 绝对链接 | 审查者已修正为相对路径 |
+| 行 45/46/57/58/60 误判 | 审查者已从 Finding #2 证据清单中移除 |
 
 ---
 
-### [P1] Rx18: v1.2.2+ 真实 CLI 驱动验收报告缺失 — ✅确认存在
+## 本轮任务清单
 
-| 项目 | 详情 |
-|------|------|
-| **现状** | `doc/第一次迭代/test/` 唯一真实验收报告为 `v1.2.0-real-cli-driver-report.md`（内容标 v1.2.1） |
-| **v1.2.2 开发报告声明** | T15 真实验收 5/5 通过，但无对应报告文件 |
-| **影响** | 验收结果无法在 test 目录追溯；T15 结论和 test 目录内容不一致 |
+```
+Rx23（单Agent，文件不冲突，可一次性完成）
+├── Rx23A: 3处 silent return → test.skip        ✅
+├── Rx23B: 6处 REST PTY 测试 → 添加 test.skip 守卫  ✅
+├── Rx23C: 任务详情.md 测试说明路径 → 标记[REDACTED]  ✅
+├── Rx23D: dev-report:79 脱敏结论修正             ✅
+│
+V5: 全量回归 (build + jest + integration)          ✅
+│
+Rx24: v1.2.6 开发报告                              ✅
+```
 
 ---
 
-## 本轮全部任务
+### Rx23: 修复剩余假绿 + 路径脱敏 + 结论修正 [P1] — ✅ 已完成
 
-```
-Rx17(假绿彻底清除) ── 单Agent ──┐
-                                ├── V3(全量回归) ──┐
-Rx18(T15真实CLI验收) ── 单Agent ─┘                  ├── V3续(确认test/integration)
-                                    (V3完成后)       │
-                                                     │
-                                    Rx18续(写验收报告到test目录)
-                                                     │
-                                                     └── Rx19(开发报告v1.2.3)
-```
+#### Rx23A: 3 处 silent return → test.skip — ✅ 已完成
 
-### 任务详情
+| 文件 | 行 | 修改 |
+|------|-----|------|
+| `src/__tests__/mcp-server.test.ts` | 21 | ✅ 添加 maybeTest，转换测试 |
+| `src/__tests__/mcp-server.test.ts` | 42 | ✅ 添加 maybeTest，转换测试 |
+| `src/__tests__/rest-api.test.ts` | 70 | ✅ 添加 maybeTest，转换测试 |
 
-#### Rx17: 彻底清除测试假绿 [P1]
+#### Rx23B: 6 处 REST PTY 测试添加守卫 — ✅ 已完成
 
-| 属性 | 说明 |
-|------|------|
-| **文件** | `src/__tests__/terminal-manager.test.ts` |
+| 文件 | 行 | 修改 |
+|------|-----|------|
+| `src/__tests__/rest-api.test.ts` | 79 | ✅ 用 `maybeTest` 替换 `test` |
+| ~ | 100 | ✅ 同上 |
+| ~ | 112 | ✅ 同上 |
+| ~ | 142 | ✅ 同上 |
+| ~ | 174 | ✅ 同上 |
+| ~ | 200 | ✅ 同上 |
 
-**Step 1: 重构 `describe('Terminal Operations')` 块**
+#### Rx23C: 脱敏测试说明路径 — ✅ 已完成
 
-将原块拆分为两个子块：
+`doc/任务详情.md` 第 138/139/143/146 行 → 全部替换为 `[REDACTED-proxy-script]` 或 `[REDACTED-project-root]/tanchishe`。
 
-**Sub-block A - 需要真实PTY（Windows skip）**:
-```
-describe('Terminal Operations (PTY required)'):  // 用 ptyTest 包装 describe
-  beforeEach (line 61) — createTerminal
-  test (line 66) — write to terminal
-  test (line 305) — read from terminal
-  test (line 327) — raw replay
-  test (line 345) — list terminals
-  test (line 358) — kill terminal
-```
+#### Rx23D: 修正开发报告脱敏结论 — ✅ 已完成
 
-**Sub-block B - fake session / no PTY needed（全平台执行）**:
-```
-describe('Terminal Write Operations (no PTY needed)'):  // 普通 describe
-  test (line 76) — raw input no auto newline
-  test (line 106) — control char no auto newline
-  test (line 135) — printable auto newline
-  test (line 164) — CR when newline
-  test (line 194) — empty input enter
-  test (line 223) — sendEnter force enter
-  test (line 254) — normalize newline to CR
-```
-
-**Step 2: 移除 error path 测试的 Windows guard**:
-```
-test (line 370) — non-existent terminal  → 删除 if (IS_WINDOWS) return
-test (line 494) — output preview default → 删除 if (IS_WINDOWS) return
-test (line 528) — non-existent terminal status → 删除 if (IS_WINDOWS) return
-```
-
-**Step 3: 验证**:
-- 运行 `npx jest --runInBand` → 确认无 `if (IS_WINDOWS) return` 残留
-- 确认 skipped 来自 `test.skip` 而非 `return`
-- 确认 fake session / error path 测试在 Windows 上通过
+`doc/第一次迭代/dev/2026-06-06-v1.2.2-dev-report.md:79` → 修正为准确描述。
 
 **验收标准**:
-- 代码中无 `if (IS_WINDOWS) return`（在所有 `test()`/`beforeEach()` 体内）
-- `ptyTest()` 用于需跳过的测试 → `test.skip` 产生正确的 skipped 计数
-- 不依赖PTY的测试在 Windows 上真实执行并通过
-- 测试报告 passed/skipped/failed 准确分离
+- ✅ 全仓 `grep "if (\(IS_WINDOWS\|process\.platform === 'win32'\)) return" src/__tests__/*.ts` = 0
+- ✅ `npx jest` skipped 正确分离（40 skipped），无 silent return
+- ✅ 任务详情.md 中测试说明路径已替换为 `[REDACTED]`
+- ✅ dev-report 脱敏结论与实际一致
 
 ---
 
-#### Rx18: 创建 v1.2.3 真实 CLI 驱动验收报告 [P1]
+### V5: 全量回归验证 [P0] — ✅ 已完成
 
-| 属性 | 说明 |
-|------|------|
-| 依赖 | Rx17 完成后重新 `npm install -g .`，确保 MCP 为新构建 |
-| 输出文件 | `doc/第一次迭代/test/2026-06-07-v1.2.3-real-cli-driver-report.md` |
-
-**Step 1: 重新执行 T15 真实验收**
-
-使用 `cli-agent-commander` skill + persistent-terminal-mcp 驱动 Claude Code CLI：
-
-| 场景 | 验证点 | 方法 |
-|------|--------|------|
-| RD-002 | wait_for_result 解析 XML | 子代理输出 `<task_result>` → 确认 PASS/FAIL/ERROR 正确 |
-| RD-004 | wait_for_pattern 超时 | 短超时(5s)匹配不会出现的模式 → timedOut=true + 快照 |
-| RD-006 | content_only 过滤 | 对比 raw 和 content_only 字符数 + 关键行保留 |
-| RD-008 | get_terminal_status | 包含 statusFile 字段完整性验证 |
-| RD-009 | Web UI | 浏览器检查状态面板/过滤切换 |
-
-**Step 2: 写报告**
-
-格式遵循 `2026-06-06-v1.2.0-real-cli-driver-report.md` 的模板：
-- 日期、版本、测试环境
-- 每个场景的操作、关键返回字段摘录、结果
-- 脱敏：无 session id、token、本机绝对路径
-- 明确记录已知限制和结论
-
-**Step 3: 更新索引**
-
-`doc/README-Index.md` 新增 v1.2.3 条目：
-```md
-### Remediation (v1.2.3)
-- [v1.2.3 real CLI driver acceptance report](./第一次迭代/test/2026-06-07-v1.2.3-real-cli-driver-report.md)
-```
-
-**验收标准**:
-- 报告文件存在于 `doc/第一次迭代/test/`
-- 版本标记为 v1.2.3
-- 5 个场景各有结果和关键证据
-- 无敏感信息
-- `doc/README-Index.md` 已链接
+| 命令 | 预期 | 结果 |
+|------|------|------|
+| `npm run build` | exit 0 | ✅ 通过 |
+| `npx jest --runInBand` | exit 0，ptest/skipped 分离，无 silent return | ✅ 40 skipped, 128 passed, 168 total |
+| `npm run test:integration` | exit 0 | ✅ 通过 |
+| `grep "if (IS_WINDOWS) return\|if (process.platform === 'win32') return" src/__tests__/*.ts` | 0 结果 | ✅ 0 结果 |
 
 ---
 
-#### V3: 全量回归验证 [P0]
+### Rx24: 输出 v1.2.6 开发报告 [P0] — ✅ 已完成
 
-| 依赖 | Rx17 完成 |
+| 输出 | `doc/第一次迭代/dev/2026-06-07-v1.2.6-dev-report.md` |
+|------|------------------------------------------------------|
 
-| 命令 | 预期 |
-|------|------|
-| `npm run build` | exit 0，无 TS 错误 |
-| `npx jest --runInBand` | 全部通过，skipped 与 passed 分离，无 `if (IS_WINDOWS) return` 残留 |
-| `npm run test:integration` | exit 0，Windows skip 信息明确 |
+内容：本轮修复记录 + 测试结果 + 自审清单。
 
 ---
 
-#### Rx19: 输出 v1.2.3 开发报告 [P0]
+## 跨轮次问题追踪
 
-| 依赖 | Rx17 + Rx18 + V3 全部通过 |
-| 输出 | `doc/第一次迭代/dev/2026-06-07-v1.2.3-dev-report.md` |
-
-内容包括：
-- 第三轮审查问题修复记录（Rx17, Rx18）
-- 测试结果（单元 passed/skipped，集成 exit 0，真实验收 5/5）
-- 自审清单（验证无假绿、无敏感信息、版本一致）
-- 文件变更统计
-
----
-
-## 三轮审查问题总览
-
-| ID | 问题 | 一轮 | 二轮 | 三轮 | 最终状态 |
-|----|------|:--:|:--:|:--:|:------:|
-| P0-1 | statusFile 未接入 | ❌ | 部分 | ✅ | 通过 |
-| P0-2 | fast-xml-parser 缺依赖 | ❌ | ✅ | ✅ | 通过 |
-| P0-3 | resume_terminal 命令注入 | — | ❌ | ✅ | 通过 |
-| P1-1 | 测试入口未接入 | ❌ | 部分 | ✅ | 通过 |
-| P1-2 | Web UI 假覆盖 | ❌ | 部分 | ✅ | 通过 |
-| P1-3 | filter 元数据丢弃 | ❌ | ✅ | ✅ | 通过 |
-| P1-4 | 敏感信息泄漏 | ❌ | 部分 | ✅ | 通过 |
-| P1-5 | 集成测试平台失败 | — | ❌ | ✅ | 通过 |
-| P1-6 | 测试假绿（16处残留） | — | ❌ | ❌ | ✅ Rx17 已修 |
-| P1-7 | 真实验收报告缺失 | — | — | ❌ | ✅ Rx18 已补 |
-| P2-1 | MCP 版本漂移 | ❌ | 部分 | ✅ | 通过 |
-| P2-2 | REST 版本漂移 | — | ❌ | ✅ | 通过 |
-| P2-3 | README 链接乱码 | — | ❌ | ✅ | 通过 |
+| ID | 内容 | R1 | R2 | R3 | R4 | 最终 |
+|----|------|:--:|:--:|:--:|:--:|:--:|
+| P0-1~3 | statusFile / 依赖 / 命令注入 | — | — | — | ✅ | 通过 |
+| P1-1~7 | 测试入口 / WebUI / filter / 敏感 / 集成 / 16假绿 / 验收报告 | — | — | — | ✅ | 通过 |
+| P1-8 | mcp/rest test 3处 silent return | — | — | — | ❌ | ✅ Rx23A 已修 |
+| P1-9 | rest test 6处 PTY 未分类 | — | — | — | ❌ | ✅ Rx23B 已修 |
+| P1-10 | 任务详情.md 测试说明路径 | — | — | — | ❌ | ✅ Rx23C 已修 |
+| P1-11 | dev-report 脱敏结论不成立 | — | — | — | ❌ | ✅ Rx23D 已修 |
+| P2-1~4 | 版本漂移 / 锁文件 / README | — | — | — | ✅ | 通过 |
 
 ---
 
 ## 完成检查清单
 
-- [x] **Rx17**: 6 个 PTY 测试改为 ptyTest/test.skip
-- [x] **Rx17**: 10 个非 PTY 测试移除 `if (IS_WINDOWS) return`
-- [x] **Rx17**: 代码中无 `if (IS_WINDOWS) return` 残留在 test/beforeEach 体内
-- [x] **V3**: `npm run build` 通过
-- [x] **V3**: `npx jest --runInBand` 全部通过，skipped 正确分离
-- [x] **V3**: `npm run test:integration` exit 0
-- [x] **Rx18**: T15 真实验收 5/5 场景通过
-- [x] **Rx18**: v1.2.2 真实验收报告已写入 `doc/第一次迭代/test/`
-- [x] **Rx18**: `doc/README-Index.md` 已更新链接
-- [x] **Rx19**: v1.2.4 开发报告待补（如审查者要求）
+- [x] **Rx23A**: 3 处 silent return 改为 maybeTest/test.skip
+- [x] **Rx23B**: 6 处 REST PTY 测试改为 maybeTest
+- [x] **Rx23C**: 任务详情.md 测试说明路径已替换为 [REDACTED]
+- [x] **Rx23D**: dev-report 脱敏结论已修正
+- [x] **V5**: `npm run build` 通过
+- [x] **V5**: `npx jest --runInBand` 全部通过，skipped 正确分离（40 skipped, 128 passed）
+- [x] **V5**: `npm run test:integration` exit 0
+- [x] **V5**: 全仓无 `if (IS_WINDOWS) return` 或 `if (process.platform === 'win32') return`
+- [x] **Rx24**: v1.2.6 开发报告已输出
 - [x] **全量自审**: 无假绿、无敏感信息、版本一致、向后兼容

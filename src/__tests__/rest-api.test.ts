@@ -1,6 +1,9 @@
 import { RestApiServer } from '../rest-api.js';
 import { TerminalManager } from '../terminal-manager.js';
 
+const IS_WINDOWS = process.platform === 'win32';
+const maybeTest = IS_WINDOWS ? test.skip : test;
+
 /**
  * Helper: make an HTTP request to the REST API server.
  * Uses Node's built-in fetch.
@@ -57,7 +60,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
     test('should include v1.2.0 endpoints in documentation', async () => {
       const res = await request(baseUrl, 'GET', '/');
       expect(res.status).toBe(200);
-    expect(res.body.version).toBe('1.2.5');
+    expect(res.body.version).toBe('1.2.6');
       expect(res.body.endpoints).toHaveProperty('GET /terminals/:id/status');
       expect(res.body.endpoints).toHaveProperty('POST /terminals/:id/wait-pattern');
       expect(res.body.endpoints).toHaveProperty('POST /terminals/:id/wait-result');
@@ -66,8 +69,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
   });
 
   describe('POST /terminals - extended with init options', () => {
-    test('should create terminal without init options (backward compatible)', async () => {
-      if (process.platform === 'win32') return; // node-pty conpty issues on Windows
+    maybeTest('should create terminal without init options (backward compatible)', async () => {
       const res = await request(baseUrl, 'POST', '/terminals', {
         cwd: process.cwd()
       });
@@ -76,7 +78,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
       expect(res.body.init).toBeUndefined();
     });
 
-    test('should create terminal with init options and return init metadata', async () => {
+    maybeTest('should create terminal with init options and return init metadata', async () => {
       const res = await request(baseUrl, 'POST', '/terminals', {
         cwd: process.cwd(),
         initCommands: ['echo hello'],
@@ -97,7 +99,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
       expect(res.status).toBe(404);
     });
 
-    test('should return status for existing terminal', async () => {
+    maybeTest('should return status for existing terminal', async () => {
       const createRes = await request(baseUrl, 'POST', '/terminals', { cwd: process.cwd() });
       const terminalId = createRes.body.terminalId;
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -109,7 +111,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
       expect(res.body.semanticStatus).toBeDefined();
     });
 
-    test('should accept includeOutputPreview query param', async () => {
+    maybeTest('should accept includeOutputPreview query param', async () => {
       const createRes = await request(baseUrl, 'POST', '/terminals', { cwd: process.cwd() });
       const terminalId = createRes.body.terminalId;
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -139,7 +141,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
       expect([400, 404]).toContain(res.status);
     });
 
-    test('should wait for pattern and return result', async () => {
+    maybeTest('should wait for pattern and return result', async () => {
       const createRes = await request(baseUrl, 'POST', '/terminals', { cwd: process.cwd() });
       const terminalId = createRes.body.terminalId;
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -171,7 +173,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
       expect(res.status).toBe(404);
     });
 
-    test('should wait for task_result and attempt to parse', async () => {
+    maybeTest('should wait for task_result and attempt to parse', async () => {
       const createRes = await request(baseUrl, 'POST', '/terminals', { cwd: process.cwd() });
       const terminalId = createRes.body.terminalId;
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -197,7 +199,7 @@ describe('RestApiServer - v1.2.0 endpoints', () => {
   });
 
   describe('GET /terminals/:id/output - extended with adapter', () => {
-    test('should accept adapter query param', async () => {
+    maybeTest('should accept adapter query param', async () => {
       const createRes = await request(baseUrl, 'POST', '/terminals', { cwd: process.cwd() });
       const terminalId = createRes.body.terminalId;
       await new Promise(resolve => setTimeout(resolve, 300));

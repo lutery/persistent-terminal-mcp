@@ -2,9 +2,9 @@
 
 Last updated: 2026-06-07
 
-Latest decision update: Fourth-round review (v1.2.4) completed and did not pass. Remaining issues: cross-file Jest silent-return tests, package-lock version drift, and tracked-doc absolute paths.
+Latest decision update: Fourth-round review (v1.2.4) remediation completed (v1.2.6). All silent-return tests fixed, REST PTY tests classified, absolute paths sanitized, dev report conclusion corrected.
 
-## Current Version: 1.2.5
+## Current Version: 1.2.6
 
 ### v1.2.0 New Features (2026-06-06)
 - `wait_for_pattern` MCP tool: regex pattern matching with timeout and capture groups
@@ -56,6 +56,10 @@ Latest decision update: Fourth-round review (v1.2.4) completed and did not pass.
 
 - [v1.2.2 second-round remediation dev report](./第一次迭代/dev/2026-06-06-v1.2.2-dev-report.md)
 - [v1.2.2 real CLI driver acceptance report](./第一次迭代/test/2026-06-07-v1.2.2-real-cli-driver-report.md)
+
+### Remediation (v1.2.6)
+
+- [v1.2.6 fourth-round remediation dev report](./第一次迭代/dev/2026-06-07-v1.2.6-dev-report.md)
 
 ## Directory Guide
 

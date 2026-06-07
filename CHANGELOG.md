@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-06-07
+
+### Fixed
+
+- **[P1] Rx23A**: Fix 3 silent-return tests in `mcp-server.test.ts` (2) and `rest-api.test.ts` (1) — replaced `if (process.platform === 'win32') return;` with `maybeTest` (test.skip on Windows) for accurate skip counting.
+- **[P1] Rx23B**: Fix 6 REST PTY tests without Windows strategy — converted PTY-dependent tests (lines 79/100/112/142/174/200) from plain `test()` to `maybeTest()` so Windows correctly reports them as skipped.
+- **[P1] Rx23C**: Sanitize 4 absolute paths in `doc/任务详情.md` (lines 138/139/143/146) with `[REDACTED-proxy-script]` and `[REDACTED-project-root]/tanchishe` markers.
+- **[P1] Rx23D**: Fix inaccurate desensitization conclusion in `doc/第一次迭代/dev/2026-06-06-v1.2.2-dev-report.md` line 79.
+
+### Review
+
+- Corrected the fourth-round v1.2.4 review report evidence for `doc/任务详情.md` line references and REST API PTY test coverage.
+- Replaced an absolute Markdown link introduced by the review summary with relative path text.
+- Updated documentation index with the errata status.
+
 ## [1.2.5] - 2026-06-07
 
 ### Review
