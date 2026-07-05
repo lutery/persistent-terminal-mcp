@@ -134,5 +134,9 @@
   "sideEffects": false,
   "publishConfig": {
     "access": "public"
+  },
+  "allowScripts": {
+    "esbuild@0.25.10": true,
+    "node-pty@1.1.0": true
   }
 }
